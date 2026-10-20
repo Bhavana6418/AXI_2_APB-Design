@@ -1,0 +1,134 @@
+module apb_csr_tb #(parameter AW=32,
+		 parameter DW=32,
+		 parameter IW=4,
+		 parameter LW=4);
+
+	 	 reg presetn,pclk;
+		 reg psel,penable;
+		 reg pwrite;
+		 reg [DW-1:0] paddr;
+	  	 reg [DW-1:0] pwdata;
+		 wire [DW-1:0] prdata;
+		 wire pready;
+		 wire pslverr;
+		 wire use_mwerr_resp;
+		 wire [2:0] wr_rd_ratio;
+
+apb_csr #(AW,DW,IW,LW) APB_CSR_DUT(presetn,pclk,psel,penable,pwrite,paddr,pwdata,prdata,pready,pslverr,use_mwerr_resp,wr_rd_ratio);
+
+initial
+begin
+	pclk = 1'b0;
+	forever 
+	#5 pclk = ~pclk;
+end
+
+task reset;
+	begin
+		@(negedge pclk)
+		presetn = 1'b0;
+		@(negedge pclk)
+		presetn = 1'b1;
+	end
+endtask
+
+task initialize;
+	begin
+		 {psel,penable,pwrite,paddr,pwdata}=0;
+	 end
+endtask
+
+task write;
+	begin
+		@(negedge pclk)
+		psel=1;
+		penable=0;
+		pwrite=1;
+		paddr=32'h4000_A000;
+		pwdata=32'h236;
+
+		#15;
+
+		@(negedge pclk)
+		psel=1;
+		penable=1;
+
+		#15;
+
+		@(negedge pclk)
+		psel=0;
+		penable=0;
+
+	end
+endtask
+
+	
+task read;
+	begin
+		@(negedge pclk)
+		psel=1;
+		penable=0;
+		pwrite=0;
+		paddr=32'h4000_A000;
+
+		#15;
+		
+		@(negedge pclk)
+		psel=1;
+		penable=1;
+
+		#15;
+
+		@(negedge pclk)
+		psel=0;
+		penable=0;
+
+
+	end
+endtask
+
+
+task error;
+	begin
+		@(negedge pclk)
+		psel=1;
+		penable=0;
+		pwrite=1;
+		paddr=32'h456;
+		pwdata=32'h236;
+
+		#15;
+
+		@(negedge pclk)
+		psel=1;
+		penable=1;
+
+		#15;
+
+		@(negedge pclk)
+		psel=0;
+		penable=0;
+
+	end
+endtask
+
+		
+
+initial
+begin
+	 $dumpfile("waves.apb_csr");
+	 $dumpvars(0,apb_csr_tb);
+end
+
+initial
+begin
+	initialize;
+	reset;
+	write;
+	read;
+	error;
+	
+	#100 $finish;
+end
+
+endmodule

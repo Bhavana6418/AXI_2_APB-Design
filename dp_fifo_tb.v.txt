@@ -1,0 +1,87 @@
+module dp_fifo_tb #(parameter AW=3,DW=8);
+
+		 reg wclk,wrstn,push;
+		 reg [DW-1:0] wdata;
+		 wire full;
+		 reg rclk,rrstn,pop;
+		 wire [DW-1:0] rdata;
+		 wire empty;
+
+dp_fifo #(AW, DW) DUT(wclk,wrstn,push,wdata,full,rclk,rrstn,pop,rdata,empty);
+
+initial
+begin
+	wclk=1'b0;
+	forever #5 wclk=~wclk;
+end
+
+initial
+begin
+	rclk=1'b0;
+	forever #10 rclk=~rclk;
+end
+
+task write_rst;
+	begin
+		@(negedge wclk)
+		wrstn=1'b0;
+		@(negedge wclk)
+		wrstn=1'b1;
+	end
+endtask
+
+task read_rst;
+	begin
+		@(negedge rclk)
+		rrstn=1'b0;
+		@(negedge rclk)
+		rrstn=1'b1;
+	end
+endtask
+
+task initialize;
+	begin
+		{push,wdata,pop}=0;
+	end
+endtask
+
+task write(input a,input [DW-1:0] data);
+	begin
+		@(negedge wclk)
+		push=a;
+		wdata=data;
+		@(negedge wclk)
+		push=1'b0;
+	end
+endtask
+
+task read(input b);
+	begin
+		@(negedge rclk)
+		pop=b;
+		@(negedge rclk)
+		pop=1'b0;
+	end
+endtask
+
+initial 
+begin
+	$dumpfile("waves.dp_fifo");
+	$dumpvars(0,dp_fifo_tb);
+end
+
+initial
+begin
+	initialize;
+	write_rst;
+	read_rst;
+	repeat(8)
+	write(1'b1,$random);
+
+	repeat(8)
+	read(1'b1);
+	
+	#100 $finish;
+end
+
+endmodule

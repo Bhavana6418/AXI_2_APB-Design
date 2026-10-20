@@ -1,0 +1,187 @@
+module fifo_sb_tb #(parameter AW=32,
+		    parameter DW=32,
+		    parameter IW=4,
+		    parameter LW=4);
+
+                 reg sclk,s_rstn;
+		 
+		 reg wa_push;
+		 reg [AW+IW+LW+7:0] wa_wdata;
+		 wire wa_full;
+
+		 reg wd_push;
+		 reg [(DW/8)+DW:0] wd_wdata;
+		 wire wd_full;
+
+		 reg ra_push;
+		 reg [AW+IW+LW+7:0] ra_wdata;
+	         wire ra_full;
+
+		 reg rd_pop;
+		 wire [DW+IW+2:0] rd_rdata;
+		 wire rd_empty;
+
+		 reg mclk,m_rstn;
+
+		 reg wa_pop;
+		 wire [AW+IW+LW+7:0] wa_rdata;
+	         wire wa_empty;
+
+		 reg wd_pop;
+		 wire [(DW/8)+DW:0] wd_rdata;
+		 wire wd_empty;
+
+		 reg ra_pop;
+		 wire [AW+IW+LW+7:0] ra_rdata;
+		 wire ra_empty;
+
+		 reg rd_push;
+		 reg [DW+IW+2:0] rd_wdata;
+		 wire rd_full;
+
+fifo_sb DUT(sclk,s_rstn,wa_push,wa_wdata,wa_full,wd_push,wd_wdata,wd_full,ra_push,ra_wdata,ra_full,rd_pop,rd_rdata,rd_empty,mclk,m_rstn,wa_pop,wa_rdata,wa_empty,wd_pop,wd_rdata,wd_empty,ra_pop,ra_rdata,ra_empty,rd_push,rd_wdata,rd_full);
+
+initial
+begin
+	sclk = 1'b0;
+	forever #5 sclk=~sclk;
+end
+
+initial
+begin
+	mclk = 1'b0;
+	forever #10 mclk=~mclk;
+end
+
+task initialize;
+	begin
+		 {wa_push,wa_wdata}=0;
+ 		 {wd_push,wd_wdata}=0;
+		 {ra_push,ra_wdata}=0;
+		 {rd_pop,wa_pop,wd_pop,ra_pop}=0;
+		 {rd_push,rd_wdata}=0;
+	 end
+endtask
+
+task s_reset;
+	begin
+		@(negedge sclk)
+		s_rstn=1'b0;
+		@(negedge sclk)
+		s_rstn=1'b1;
+	end
+endtask
+
+task m_reset;
+	begin
+		@(negedge mclk)
+		m_rstn=1'b0;
+		@(negedge mclk)
+		m_rstn=1'b1;
+	end
+endtask
+
+task wa_fifo;
+	begin
+		repeat(4)
+		begin
+		@(negedge sclk)
+ 		wa_push=1'b1;
+		wa_wdata=$random;
+		@(negedge sclk)
+		wa_push=1'b0;
+		end
+
+		repeat(4)
+		begin
+		@(negedge mclk)
+		wa_pop=1'b1;
+		@(negedge mclk)
+		wa_pop=1'b0;
+		end
+	end
+endtask
+
+task ra_fifo;
+	begin
+		repeat(4)
+		begin
+		@(negedge sclk)
+ 		ra_push=1'b1;
+		ra_wdata=$random;
+		@(negedge sclk)
+		ra_push=1'b0;
+		end
+
+		repeat(4)
+		begin
+		@(negedge mclk)
+		ra_pop=1'b1;
+		@(negedge mclk)
+		ra_pop=1'b0;
+		end
+	end
+endtask
+
+task wd_fifo;
+	begin
+		repeat(64)
+		begin
+		@(negedge sclk)
+ 		wd_push=1'b1;
+		wd_wdata=$random;
+		@(negedge sclk)
+		wd_push=1'b0;
+		end
+
+		repeat(64)
+		begin
+		@(negedge mclk)
+		wd_pop=1'b1;
+		@(negedge mclk)
+		wd_pop=1'b0;
+		end
+	end
+endtask
+
+task rd_fifo;
+	begin
+		repeat(64)
+		begin
+		@(negedge mclk)
+ 		rd_push=1'b1;
+		rd_wdata=$random;
+		@(negedge mclk)
+		rd_push=1'b0;
+		end
+
+		repeat(64)
+		begin
+		@(negedge sclk)
+		rd_pop=1'b1;
+		@(negedge sclk)
+		rd_pop=1'b0;
+		end
+	end
+endtask
+
+initial 
+begin
+	$dumpfile("waves.fifo_sb");
+	$dumpvars(0,fifo_sb_tb);
+end
+
+initial
+begin
+	initialize;
+	s_reset;
+	m_reset;
+	
+	wa_fifo;
+	ra_fifo;
+	wd_fifo;
+	rd_fifo;
+
+	#100 $finish;
+end
+endmodule

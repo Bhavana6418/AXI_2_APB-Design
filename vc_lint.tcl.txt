@@ -1,0 +1,17 @@
+#Liberty files are needed for logical and physical netlist designs
+set search_path "./"
+set link_library " "
+
+set_app_var enable_lint true
+
+configure_lint_setup -goal lint_rtl
+
+analyze -verbose -format verilog "../../rtl/*"
+
+elaborate axi_2_apb_top
+
+check_lint
+
+waive_lint -tag "STARC05-1.3.1.3" -add axi_2_apb_top
+
+report_lint -verbose -file report_lint_top.txt

@@ -1,0 +1,890 @@
+`timescale 1ns/1ps 
+
+module axi_2_apb_top_tb;
+
+		       parameter AW=32;
+	    	       parameter DW=32;
+		       parameter LW=4;
+	       	       parameter IW=4;
+	       	       parameter SLAVE0_BASE_ADDR = 32'h4000_0000;
+		       parameter SLAVE1_BASE_ADDR = 32'h4000_1000;
+	      	       parameter SLAVE2_BASE_ADDR = 32'h4000_2000;
+		       parameter SLAVE3_BASE_ADDR = 32'h4000_3000; 
+		       parameter SLAVE4_BASE_ADDR = 32'h4000_4000;
+		       parameter SLAVE5_BASE_ADDR = 32'h4000_5000;
+		       parameter SLAVE6_BASE_ADDR = 32'h4000_6000;
+		       parameter SLAVE7_BASE_ADDR = 32'h4000_7000;
+		       parameter SLAVE8_BASE_ADDR = 32'h4000_8000; 
+		       parameter SLAVE9_BASE_ADDR = 32'h4000_9000;
+		       parameter SLAVE10_BASE_ADDR = 32'h4000_A000;
+		       parameter OFFSET_ADDR = 32'h0000_0FFF;
+
+		        reg Aclk_i,Aresetn_i;
+		 
+		        reg [IW-1:0] Awid_i;
+		        reg [AW-1:0] Awaddr_i;
+		        reg [LW-1:0] Awlen_i;
+		        reg [2:0] Awsize_i;
+		        reg [1:0] Awburst_i;
+		        reg [2:0] Awprot_i;
+		        reg Awvalid_i;
+		        wire Awready_o;
+
+		        reg [DW-1:0] Wdata_i;
+	 	        reg [(DW/8)-1:0] Wstrb_i;
+		        reg Wlast_i,Wvalid_i;
+		        wire Wready_o;
+
+		        wire[IW-1:0] Bid_o;
+	 	        wire[1:0] Bresp_o;
+		        wire Bvalid_o;
+		        reg Bready_i;
+
+		  	reg [IW-1:0] Arid_i;
+			reg [AW-1:0] Araddr_i;
+		 	reg [LW-1:0] Arlen_i;
+		 	reg [2:0] Arsize_i;
+	 	 	reg [1:0] Arburst_i;
+		 	reg [2:0] Arprot_i;
+		 	reg Arvalid_i;
+		 	wire Arready_o;
+
+		 	wire[IW-1:0] Rid_o;
+		 	wire[DW-1:0]  Rdata_o;
+		 	wire[1:0] rresp_o;
+		 	reg Rready_i;
+		 	wire Rlast_o;
+		 	wire Rvalid_o;
+
+			reg Pclk_i,Presetn_i;
+			wire[9:0] Pselx_o;
+			wire pwrite_o,penable_o;
+			wire[2:0] pprot_o;
+			wire[AW-1:0] paddr_o;
+			wire[DW-1:0] pwdata_o;
+			wire[(DW/8)-1:0] pstrb_o;
+			reg [9:0] pslverr_i,pready_i;
+			reg [DW-1:0] prdata_i_0,prdata_i_1,prdata_i_2,prdata_i_3,prdata_i_4,prdata_i_5,prdata_i_6,prdata_i_7,prdata_i_8,prdata_i_9;
+
+//local variables 
+integer i,j,k;
+
+axi_2_apb_top #(AW,DW,LW,IW,SLAVE0_BASE_ADDR,SLAVE1_BASE_ADDR,SLAVE2_BASE_ADDR,SLAVE3_BASE_ADDR,SLAVE4_BASE_ADDR,SLAVE5_BASE_ADDR,SLAVE6_BASE_ADDR,SLAVE7_BASE_ADDR,SLAVE8_BASE_ADDR,SLAVE9_BASE_ADDR,SLAVE10_BASE_ADDR,OFFSET_ADDR) TOP_DUT(Aclk_i,Aresetn_i,Awid_i,Awaddr_i,Awlen_i,Awsize_i,Awburst_i,Awprot_i,Awvalid_i,Awready_o,Wdata_i,Wstrb_i,Wlast_i,Wvalid_i,Wready_o,Bid_o,Bresp_o,Bvalid_o,Bready_i,Arid_i,Araddr_i,Arlen_i,Arsize_i,Arburst_i,Arprot_i,Arvalid_i,Arready_o,Rid_o,Rdata_o,rresp_o,Rready_i,Rlast_o,Rvalid_o,Pclk_i,Presetn_i,Pselx_o,pwrite_o,penable_o,pprot_o,paddr_o,pwdata_o,pstrb_o,pslverr_i,pready_i,prdata_i_0,prdata_i_1,prdata_i_2,prdata_i_3,prdata_i_4,prdata_i_5,prdata_i_6,prdata_i_7,prdata_i_8,prdata_i_9);
+
+//clock generation
+always #5 Aclk_i = ~Aclk_i;
+always #10 Pclk_i = ~Pclk_i;
+
+task reset;
+	begin
+		Aresetn_i = 1'b0;
+		Presetn_i = 1'b0;
+		#40;
+		Aresetn_i = 1'b1;
+		Presetn_i = 1'b1;
+	end
+endtask
+
+task initialize;
+	begin
+		// initialize clk
+		Pclk_i = 0;
+		Aclk_i = 0;
+
+		// reset signals
+		Presetn_i = 1;
+		Aresetn_i = 1;
+
+		// initialize all inputs to default
+		pready_i = 0;
+		pslverr_i = 0;
+		{prdata_i_0,prdata_i_1,prdata_i_2,prdata_i_3,prdata_i_4,prdata_i_5,prdata_i_6,prdata_i_7,prdata_i_8,prdata_i_9} = 0;
+		{Awid_i,Awaddr_i,Awlen_i,Awsize_i,Awburst_i,Awprot_i,Awvalid_i} = 0;
+		{Wdata_i,Wstrb_i,Wlast_i,Wvalid_i} = 0;
+		Bready_i = 0;
+		{Arid_i,Araddr_i,Arlen_i,Arsize_i,Arburst_i,Arprot_i,Arvalid_i} = 0;
+		Rready_i = 0;
+		#10;
+	end
+endtask
+
+//------------------- task to send axi_write_addr and cntrl info ---------------------//
+
+task axi_write_address(input [IW-1:0] aw_id, input [AW-1:0] aw_addr, input [LW-1:0] aw_len, input [2:0] aw_size,input [1:0] aw_burst, input [2:0] aw_prot);
+	begin
+		@(negedge Aclk_i)
+		Awid_i = aw_id;
+		Awaddr_i = aw_addr;
+		Awlen_i = aw_len;
+		Awsize_i = aw_size;
+		Awburst_i = aw_burst;
+		Awprot_i = aw_prot;
+		Awvalid_i = 1'b1;
+		wait(Awready_o)
+		@(negedge Aclk_i)
+		Awvalid_i = 1'b0;
+	end
+endtask
+
+//------------------- task to send axi_write_data strobe ---------------------//
+
+task axi_write_data(input [LW-1:0] len);
+	begin
+		for(i=0; i<=len; i=i+1)
+		begin
+			@(negedge Aclk_i)
+			Wvalid_i = 1'b1;
+			Wdata_i = $random;
+			Wstrb_i = 4'b1111;
+			if(i == len)
+				Wlast_i = 1'b1;
+			else
+				Wlast_i = 1'b0;
+			wait(Wready_o)
+			@(negedge Aclk_i)
+			Wvalid_i = 1'b0;
+			Wlast_i = 1'b0;
+		end
+	end
+endtask
+
+//------------------- task to receive axi_write response ---------------------//
+
+task axi_write_response;
+	begin
+		@(negedge Aclk_i)
+		Bready_i = 1'b1;
+		wait(Bvalid_o)
+		@(posedge Aclk_i)
+		Bready_i = 1'b0;
+	end
+endtask
+
+//------------------- task to send axi_read_addr and cntrl info ---------------------//
+
+task axi_read_address(input [IW-1:0] ar_id, input [AW-1:0] ar_addr, input [LW-1:0] ar_len, input [2:0] ar_size, input [1:0] ar_burst, input [2:0] ar_prot);
+	begin
+		@(negedge Aclk_i)
+		Arid_i = ar_id;
+		Araddr_i = ar_addr;
+		Arlen_i = ar_len;
+		Arsize_i = ar_size;
+		Arburst_i = ar_burst;
+		Arprot_i = ar_prot;
+		Arvalid_i = 1'b1;
+		wait(Arready_o)
+		@(negedge Aclk_i)
+		Arvalid_i = 1'b0;
+	end
+endtask
+
+//------------------- task to receive axi_read_data ---------------------//
+
+task axi_read_data(input [LW-1:0] r_len);
+	begin
+		for(j=0; j<=r_len; j=j+1)
+		begin
+			@(negedge Aclk_i)
+		//	@(negedge Aclk_i)
+			Rready_i = 1'b1;
+			wait(Rvalid_o)
+			@(posedge Aclk_i)
+		//	@(negedge Aclk_i)
+			Rready_i = 1'b0;
+		end
+	end
+endtask
+
+//------------------- task to send or receive the apb_data based on pwrite and psel  ---------------------//
+
+task apb_operation(input [LW-1:0] len, input resp);
+	begin
+		for(k=0; k<=len; k=k+1)
+		begin
+			@(negedge Pclk_i)
+			wait(Pselx_o)
+				begin
+					if(pwrite_o)
+					begin
+						case(Pselx_o)
+							    10'b00_0000_0001 :begin
+								    	      wait(penable_o)
+									      @(negedge Pclk_i)
+								              begin
+								              pready_i = 10'b00_0000_0001;
+									      pslverr_i = {9'b0,resp};
+								              end
+								              end
+
+							    10'b00_0000_0010 :begin
+								              wait(penable_o)
+									      @(negedge Pclk_i)
+								              begin
+								              pready_i = 10'b00_0000_0010;
+									      pslverr_i = {8'b0,resp,1'b0};
+								              end
+								              end
+
+							    10'b00_0000_0100 :begin
+								    	      wait(penable_o)
+									      @(negedge Pclk_i)
+								              begin
+
+								              pready_i = 10'b00_0000_0100;
+									      pslverr_i = {7'b0,resp,2'b0};
+								              end
+								              end
+
+							    10'b00_0000_1000 :begin
+								    	      wait(penable_o)
+									      @(negedge Pclk_i)
+								              begin
+
+								              pready_i = 10'b00_0000_1000;
+									      pslverr_i = {6'b0,resp,3'b0};
+								              end
+								      	      end
+
+							   10'b00_0001_0000 : begin
+								              wait(penable_o)
+									      @(negedge Pclk_i)
+								              begin
+
+								              pready_i = 10'b00_0001_0000;
+									      pslverr_i = {5'b0,resp,4'b0};
+								              end
+								              end
+
+							   10'b00_0010_0000 : begin
+								   	      wait(penable_o)
+									      @(negedge Pclk_i)
+								              begin
+
+								              pready_i = 10'b00_0010_0000;
+									      pslverr_i = {4'b0,resp,5'b0};
+								              end
+								              end
+
+							  10'b00_0100_0000 : begin
+								  	      wait(penable_o)
+									      @(negedge Pclk_i)
+								              begin
+
+								              pready_i = 10'b00_0100_0000;
+									      pslverr_i = {3'b0,resp,6'b0};
+								              end
+								              end
+
+						          10'b00_1000_0000 : begin
+								  	      wait(penable_o)
+									      @(negedge Pclk_i)
+								              begin
+
+								              pready_i = 10'b00_1000_0000;
+									      pslverr_i = {2'b0,resp,7'b0};
+								              end
+								              end
+
+						          10'b01_0000_0000 : begin
+								  	      wait(penable_o)
+									      @(negedge Pclk_i)
+								              begin
+
+								              pready_i = 10'b01_0000_0000;
+									      pslverr_i = {1'b0,resp,8'b0};
+								              end
+								      	      end
+
+							  10'b10_0000_0000 : begin
+								  	      wait(penable_o)
+									      @(negedge Pclk_i)
+								              begin
+
+								              pready_i = 10'b1000000000;
+									      pslverr_i = {resp,9'b0};
+								              end
+								              end
+
+							  default: 	      begin
+								              pready_i = 10'b00_0000_0000;
+									      pslverr_i = 10'b0;
+								              end
+						endcase
+						wait(pwrite_o && penable_o)
+						@(negedge Pclk_i)
+						pready_i = 10'b0;
+					end
+					else
+					begin
+						case(Pselx_o)
+							    10'b00_0000_0001 : begin
+								    	      wait(penable_o)
+									      @(negedge Pclk_i)
+								              begin
+								              pready_i = 10'b00_0000_0001;
+									      pslverr_i = {9'b0,resp};
+									      prdata_i_0 = $random;
+								              end
+								      		end
+
+							    10'b00_0000_0010 : begin
+								    		wait(penable_o)
+									      @(negedge Pclk_i)
+								              begin
+								              pready_i = 10'b00_0000_0010;
+									      pslverr_i = {8'b0,resp,1'b0};
+									      prdata_i_1 = $random;
+								              end
+								      		end
+
+							    10'b00_0000_0100 : begin
+								    		wait(penable_o)
+									      @(negedge Pclk_i)
+								              begin
+								              pready_i = 10'b00_0000_0100;
+									      pslverr_i = {7'b0,resp,2'b0};
+									      prdata_i_2 = $random;
+								              end
+								      		end
+
+							    10'b0000001000 : begin
+								    		wait(penable_o)
+									      @(negedge Pclk_i)
+								              begin
+								              pready_i = 10'b00_00001000;
+									      pslverr_i = {6'b0,resp,3'b0};
+									      prdata_i_3 = $random;
+								              end
+									       end
+
+							   10'b00_0001_0000 : begin
+								   		wait(penable_o)
+									      @(negedge Pclk_i)
+								              begin
+								              pready_i = 10'b00_0001_0000;
+									      pslverr_i = {5'b0,resp,4'b0};
+									      prdata_i_4 = $random;
+								              end
+								      		end
+
+							   10'b00_0010_0000 : begin
+								   		wait(penable_o)
+									      @(negedge Pclk_i)
+								              begin
+								              pready_i = 10'b00_0010_0000;
+									      pslverr_i = {4'b0,resp,5'b0};
+									      prdata_i_5 = $random;
+								              end
+								      		end
+
+							   10'b00_0100_0000 : begin
+								   		wait(penable_o)
+									      @(negedge Pclk_i)
+								              begin
+								              pready_i = 10'b00_0100_0000;
+									      pslverr_i = {3'b0,resp,6'b0};
+									      prdata_i_6 = $random;
+								              end
+									      	end
+
+						          10'b00_1000_0000 : begin
+								  		wait(penable_o)
+									      @(negedge Pclk_i)
+								              begin
+								              pready_i = 10'b00_1000_0000;
+									      pslverr_i = {2'b0,resp,7'b0};
+									      prdata_i_7 = $random;
+								              end
+								      		end
+
+						         10'b01_0000_0000 : begin
+								 		wait(penable_o)
+									      @(negedge Pclk_i)
+								              begin
+								              pready_i = 10'b01_0000_0000;
+									      pslverr_i = {1'b0,resp,8'b0};
+									      prdata_i_8 = $random;
+								              end
+								      		end
+
+							  10'b10_0000_0000 : begin
+								  		wait(penable_o)
+									      @(negedge Pclk_i)
+								              begin
+								              pready_i = 10'b10_0000_0000;
+									      pslverr_i = {resp,9'b0};
+									      prdata_i_9 = $random;
+								              end
+									      	end
+
+							  default: 	      begin
+								              pready_i = 10'b00_0000_0001;
+									      pslverr_i = 10'b0;
+								              end
+						endcase
+						wait(!pwrite_o && penable_o)
+						@(negedge Pclk_i)
+						pready_i = 10'b0;
+				end
+			end
+		end
+	end
+endtask
+
+//-------------------------task to send cntrl info --------------------//
+
+task axi_write_addr_csr(input [IW-1:0] aw_id, input [2:0] aw_prot);
+	begin
+		@(negedge Aclk_i)
+		Awid_i = aw_id;
+		Awaddr_i = 32'h4000_A000;
+		Awlen_i = 4'h0;
+		Awsize_i = 3'h0;
+		Awburst_i = 2'h0;
+		Awprot_i = aw_prot;
+		Awvalid_i = 1'b1;
+		wait(Awready_o)
+		@(negedge Aclk_i)
+		Awvalid_i = 1'b0;
+	end
+endtask
+
+//-------------------------task to send the axi write data to csr --------------------//
+
+task axi_write_data_csr(input [DW-1:0] data);
+	begin
+			@(negedge Aclk_i)
+			Wvalid_i = 1'b1;
+			Wdata_i = data;
+			Wstrb_i = 4'b1111;
+			Wlast_i = 1'b1;
+			wait(Wready_o)
+			@(negedge Aclk_i)
+			Wvalid_i = 1'b0;
+			Wlast_i = 1'b0;
+	end
+endtask
+
+initial
+begin
+	 $dumpfile("waves.top");
+	 $dumpvars(0,axi_2_apb_top_tb);
+end
+
+initial
+begin
+	initialize;
+	reset;
+
+	// operation : write to the csr (to set the use_mwerr_resp as 0 and 
+	// wr_rd_ratio as 0)
+	fork
+		axi_write_addr_csr(4'hA,3'h5);
+		axi_write_data_csr(32'h0000_0000);
+		axi_write_response;
+	join
+
+	#50;
+	
+	// operation : AXI write operation for 6th slave
+	// call tasks axi_write_addr,axi_write_data,axi_write_response
+	// and apb operation in the fork join block for concurrent operations
+	fork 
+		axi_write_address(4'hA,32'h4000_5040,4'h3,3'h2,2'h1,3'h5); // {id,addr,len,size,burst,prot}
+		axi_write_data(4'h3);
+		axi_write_response;
+		apb_operation(4'h3,1'b1);
+	join
+
+	// operation : AXI write operations for the 8th slave
+	fork
+		axi_write_address(4'hA,32'h4000_7040,4'h3,3'h2,2'h1,3'h5);
+		axi_write_data(4'h3);
+		axi_write_response;
+		apb_operation(4'h3, 1'b1);
+	join
+
+	// operations : AXI write operations to verify the multiple
+	// outstanding transactions
+	fork
+		begin
+			axi_write_address(4'hA,32'h4000_1040,4'h3,3'h2,2'h1,3'h5);
+			axi_write_address(4'hA,32'h4000_4040,4'h3,3'h2,2'h1,3'h5);
+			axi_write_address(4'hA,32'h4000_6040,4'h3,3'h2,2'h1,3'h5);
+			axi_write_address(4'hA,32'h4000_8040,4'h3,3'h2,2'h1,3'h5);
+		end
+		begin
+			axi_write_data(4'h3);
+			axi_write_data(4'h3);
+		        axi_write_data(4'h3);
+			axi_write_data(4'h3);
+		end
+		begin 
+			axi_write_response;
+			axi_write_response;
+			axi_write_response;
+			axi_write_response;
+		end
+		begin
+			apb_operation(4'h3,1'b1);
+			apb_operation(4'h3,1'b1);
+			apb_operation(4'h3,1'b1);
+			apb_operation(4'h3,1'b1);
+		end	
+	join
+
+	// operation : write to the csr ( to set the 
+	// use _mwerr_resp as 1 and wr_rd_ratio as 0)
+	fork
+		axi_write_addr_csr(4'hA,3'h5);
+
+		axi_write_data_csr(32'h8000_0000);
+		axi_write_response;
+	join
+
+	// operation : read from configuration register
+	fork
+		axi_read_address(4'h5,32'h4000_A000,4'h1,3'h0,2'h1,3'h5); // {id,addr,len,size,burst,prot}
+		axi_read_data(4'h1);
+	join
+        
+	#50;
+	
+	fork
+				axi_read_address(4'h5,32'h4000_6070,4'h3,3'h0,2'h1,3'h5); //7th slave read
+				axi_read_data(4'h3); //len
+				apb_operation(4'h3,1'b1);
+	join	
+
+	#50;
+	
+	// operation : AXI write operation to verify the decode error
+	// here apb_operation task is not called because since 
+	// address is not of range design will not convert to
+	// apb xtns and will return a Bresp as decode error
+	fork
+		axi_write_address(4'hA,32'hCA45_7276,4'h3,3'h2,2'h1,3'h5);
+		axi_write_data(4'h3);
+		axi_write_response;
+	join
+      
+	#50;
+
+	// operation: AXI write operation for 3rd slave
+	fork
+				axi_write_address(4'hB,32'h4000_2456,4'hB,3'h2,2'h1,3'h7);
+				axi_write_data(4'hB); //len
+				axi_write_response;
+				apb_operation(4'hB,1'b0);
+	join
+
+
+	#50;
+	
+	// operation : AXI read opeartion to verify decode error
+	fork
+		axi_read_address(4'h5,32'hD346_F345,4'h3,3'h1,2'h0,3'h3);
+		axi_read_data(4'h3);
+	join
+
+	#50;
+	
+       //operation: AXI read Operation for 9th slave
+	fork
+				axi_read_address(4'hB,32'h4000_8720,4'hB,3'h2,2'h1,3'h7);
+				axi_read_data(4'hB); //len
+				apb_operation(4'hB,1'b0);
+	join
+
+	#50;
+	
+	//OPERATION: AXI write opeartion FOR 4th SLAVE
+	fork
+				axi_write_address(4'hB,32'h4000_3456,4'hB,3'h2,2'h1,3'h7);
+				axi_write_data(4'hB); //len
+				axi_write_response;
+				apb_operation(4'hB,1'b0);
+	join
+
+	#50;
+	
+/*	fork
+				//operation: AXI read Operation for 8th slave
+				fork
+					axi_read_address(4'hB,32'h4000_7689,4'h3,3'h2,2'h1,3'h7);
+					axi_read_data(4'h3); //len
+				join
+
+					//OPERATION: AXI write opeartion FOR 1TH SLAVE
+				fork
+					axi_write_address(4'hB,32'h4000_0678,4'h3,3'h2,2'h1,3'h7);//{ar_id,ar_addr,ar_len,ar_size,ar_burst,ar_prot}
+					axi_write_data(4'h3); //len
+					axi_write_response;
+				join
+				apb_operation(4'h7,1'b1);
+	join*/
+
+	#200;
+
+
+     	         	//Operation: write to the crsr(to set the
+			//use_mwerr_resp as 1 and wr_rd_ratio as 0)
+			//reset;
+			fork
+			       axi_write_addr_csr(4'hA,3'h5);
+			       axi_write_data_csr(32'h8000_0000); 
+			       axi_write_response;
+			join
+			
+
+			#260;
+			fork
+					//operation: AXI read Operation for 2th slave
+				fork
+					axi_read_address(4'hB,32'h4000_1ABC,4'd9,3'h2,2'h1,3'h7);
+					axi_read_data(4'd9); //len
+				join
+
+					//OPERATION: AXI write opeartion FOR 7th SLAVE
+				fork
+					axi_write_address(4'hA,32'h4000_693F,4'd4,3'h2,2'h1,3'h7);//{ar_id,ar_addr,ar_len,ar_size,ar_burst,ar_prot}
+					axi_write_data(4'd4); //len
+					axi_write_response;
+				join
+				begin
+				apb_operation(4'd9,1'b0);
+				apb_operation(4'd4,1'b0);
+				end
+			join
+
+			#100;
+
+			//Operation: write to the crsr(to set the
+			//use_mwerr_resp as 1 and wr_rd_ratio as 1)
+			//reset;
+			fork
+			       axi_write_addr_csr(4'hA,3'h5);
+			       axi_write_data_csr(32'h8000_0001); 
+			       axi_write_response;
+			join
+			
+
+			#260;
+			fork
+					//operation: AXI read Operation for 2th slave
+				fork
+					axi_read_address(4'hB,32'h4000_1ABC,4'd9,3'h2,2'h1,3'h7);
+					axi_read_data(4'd9); //len
+				join
+
+					//OPERATION: AXI write opeartion FOR 7th SLAVE
+				fork
+					axi_write_address(4'hA,32'h4000_693F,4'd4,3'h2,2'h1,3'h7);//{ar_id,ar_addr,ar_len,ar_size,ar_burst,ar_prot}
+					axi_write_data(4'd4); //len
+					axi_write_response;
+				join
+				begin
+				apb_operation(4'd9,1'b0);
+				apb_operation(4'd4,1'b0);
+				end
+			join
+
+			#100;
+
+			//Operation: write to the crsr(to set the
+			//use_mwerr_resp as 1 and wr_rd_ratio as 2)
+			//reset;
+			fork
+			       axi_write_addr_csr(4'hA,3'h5);
+			       axi_write_data_csr(32'h8000_0002); 
+			       axi_write_response;
+			join
+			
+
+			#260;
+			fork
+					//operation: AXI read Operation for 2th slave
+				fork
+					axi_read_address(4'hB,32'h4000_1ABC,4'd9,3'h2,2'h1,3'h7);
+					axi_read_data(4'd9); //len
+				join
+
+					//OPERATION: AXI write opeartion FOR 7th SLAVE
+				fork
+					axi_write_address(4'hA,32'h4000_693F,4'd4,3'h2,2'h1,3'h7);//{ar_id,ar_addr,ar_len,ar_size,ar_burst,ar_prot}
+					axi_write_data(4'd4); //len
+					axi_write_response;
+				join
+				begin
+				apb_operation(4'd9,1'b0);
+				apb_operation(4'd4,1'b0);
+				end
+			join
+
+			#100;
+
+			//Operation: write to the crsr(to set the
+			//use_mwerr_resp as 1 and wr_rd_ratio as 3)
+			//reset;
+			fork
+			       axi_write_addr_csr(4'hA,3'h5);
+			       axi_write_data_csr(32'h8000_0003); 
+			       axi_write_response;
+			join
+			
+
+			#260;
+			fork
+					//operation: AXI read Operation for 2th slave
+				fork
+					axi_read_address(4'hB,32'h4000_1ABC,4'd9,3'h2,2'h1,3'h7);
+					axi_read_data(4'd9); //len
+				join
+
+					//OPERATION: AXI write opeartion FOR 7th SLAVE
+				fork
+					axi_write_address(4'hA,32'h4000_693F,4'd4,3'h2,2'h1,3'h7);//{ar_id,ar_addr,ar_len,ar_size,ar_burst,ar_prot}
+					axi_write_data(4'd4); //len
+					axi_write_response;
+				join
+				begin
+				apb_operation(4'd9,1'b0);
+				apb_operation(4'd4,1'b0);
+				end
+			join
+
+			#100;
+
+			//Operation: write to the crsr(to set the
+			//use_mwerr_resp as 1 and wr_rd_ratio as 4)
+			//reset;
+			fork
+			       axi_write_addr_csr(4'hA,3'h5);
+			       axi_write_data_csr(32'h8000_0004); 
+			       axi_write_response;
+			join
+			
+
+			#260;
+			fork
+					//operation: AXI read Operation for 2th slave
+				fork
+					axi_read_address(4'hB,32'h4000_1ABC,4'd9,3'h2,2'h1,3'h7);
+					axi_read_data(4'd9); //len
+				join
+
+					//OPERATION: AXI write opeartion FOR 7th SLAVE
+				fork
+					axi_write_address(4'hA,32'h4000_693F,4'd4,3'h2,2'h1,3'h7);//{ar_id,ar_addr,ar_len,ar_size,ar_burst,ar_prot}
+					axi_write_data(4'd4); //len
+					axi_write_response;
+				join
+				begin
+				apb_operation(4'd9,1'b0);
+				apb_operation(4'd4,1'b0);
+				end
+			join
+
+			#100;
+
+			//Operation: write to the crsr(to set the
+			//use_mwerr_resp as 1 and wr_rd_ratio as 5)
+			//reset;
+			fork
+			       axi_write_addr_csr(4'hA,3'h5);
+			       axi_write_data_csr(32'h8000_0005); 
+			       axi_write_response;
+			join
+			
+
+			#260;
+			fork
+					//operation: AXI read Operation for 2th slave
+				fork
+					axi_read_address(4'hB,32'h4000_1ABC,4'd9,3'h2,2'h1,3'h7);
+					axi_read_data(4'd9); //len
+				join
+
+					//OPERATION: AXI write opeartion FOR 7th SLAVE
+				fork
+					axi_write_address(4'hA,32'h4000_693F,4'd4,3'h2,2'h1,3'h7);//{ar_id,ar_addr,ar_len,ar_size,ar_burst,ar_prot}
+					axi_write_data(4'd4); //len
+					axi_write_response;
+				join
+				begin
+				apb_operation(4'd9,1'b0);
+				apb_operation(4'd4,1'b0);
+				end
+			join
+
+
+			//Operation: write to the crsr(to set the
+			//use_mwerr_resp as 1 and wr_rd_ratio as 6)
+			//reset;
+			fork
+			       axi_write_addr_csr(4'hA,3'h5);
+			       axi_write_data_csr(32'h8000_0006); 
+			       axi_write_response;
+			join
+			
+
+			#260;
+			fork
+					//operation: AXI read Operation for 2th slave
+				fork
+					axi_read_address(4'hB,32'h4000_1ABC,4'd9,3'h2,2'h1,3'h7);
+					axi_read_data(4'd9); //len
+				join
+
+					//OPERATION: AXI write opeartion FOR 7th SLAVE
+				fork
+					axi_write_address(4'hA,32'h4000_693F,4'd4,3'h2,2'h1,3'h7);//{ar_id,ar_addr,ar_len,ar_size,ar_burst,ar_prot}
+					axi_write_data(4'd4); //len
+					axi_write_response;
+				join
+				begin
+				apb_operation(4'd9,1'b0);
+				apb_operation(4'd4,1'b0);
+				end
+			join
+			
+			#100;
+
+			//Operation: write to the crsr(to set the
+			//use_mwerr_resp as 1 and wr_rd_ratio as 7)
+			//reset;
+			fork
+			       axi_write_addr_csr(4'hA,3'h5);
+			       axi_write_data_csr(32'h8000_0007); 
+			       axi_write_response;
+			join
+			
+
+			#260;
+			fork
+					//operation: AXI read Operation for 2th slave
+				fork
+					axi_read_address(4'hB,32'h4000_1ABC,4'd9,3'h2,2'h1,3'h7);
+					axi_read_data(4'd9); //len
+				join
+
+					//OPERATION: AXI write opeartion FOR 7th SLAVE
+				fork
+					axi_write_address(4'hA,32'h4000_693F,4'd4,3'h2,2'h1,3'h7);//{ar_id,ar_addr,ar_len,ar_size,ar_burst,ar_prot}
+					axi_write_data(4'd4); //len
+					axi_write_response;
+				join
+				begin
+				apb_operation(4'd9,1'b0);
+				apb_operation(4'd4,1'b0);
+				end
+			join
+
+
+
+	
+	#400 $finish;
+
+end
+
+endmodule

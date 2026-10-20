@@ -1,0 +1,106 @@
+module addr_calc_tb #(parameter AW=32,
+		      parameter DW=32,
+		      parameter IW=4,
+	  	      parameter LW=4);
+
+	      	      reg pclk,presetn;
+		      reg waddr_ren;
+		      reg raddr_ren;
+		      reg [AW+IW+LW+7:0] waddr_ctrl_rdata;
+		      reg [AW+IW+LW+7:0] raddr_ctrl_rdata;
+		      reg waddr_fifo_empty;
+		      reg raddr_fifo_empty;
+		      wire waddr_fifo_pop;
+		      wire raddr_fifo_pop;
+		      wire [AW+IW+LW+2:0] r_write_prot_addr_id;
+		      wire [AW+IW+LW+2:0] r_read_prot_addr_id;
+		      wire w_addr_fe;
+		      wire r_addr_fe;
+
+addr_cal#(AW,DW,IW,LW) ADDR_CALC_DUT(pclk,presetn,waddr_ren,raddr_ren,waddr_ctrl_rdata,raddr_ctrl_rdata,waddr_fifo_empty,raddr_fifo_empty,waddr_fifo_pop,raddr_fifo_pop,r_write_prot_addr_id,r_read_prot_addr_id,w_addr_fe,r_addr_fe);
+
+initial
+begin
+	pclk=1'b0;
+	forever 
+	#5 pclk=~pclk;
+end
+
+task reset;
+	begin
+		@(negedge pclk)
+		presetn = 1'b0;
+		@(negedge pclk)
+		presetn = 1'b1;
+	end
+endtask
+
+task initialize;
+	begin
+		{waddr_ren,raddr_ren}=0;
+	//	{waddr_ctrl_rdata,raddr_ctrl_rdata}=0;
+		{waddr_fifo_empty,raddr_fifo_empty}=0;
+	end
+endtask
+
+// for write
+task write;
+	begin
+		@(negedge pclk)
+		waddr_ctrl_rdata = {3'b1,4'b0001,3'b001,4'b111,32'h3245,4'b0010};   //{Awprot,Awburst,Awsize,Awlen,Awaddr,Awid};
+		waddr_fifo_empty = 1'b0;
+		waddr_ren=1'b0;
+
+		#90;
+		
+		@(negedge pclk)		
+		waddr_ctrl_rdata = {3'b1,4'b0000,3'b010,4'b101,32'h45,4'b0001};   //{Awprot,Awburst,Awsize,Awlen,Awaddr,Awid};
+	        
+		#70;
+		
+		@(negedge pclk)
+		waddr_fifo_empty = 1'b1;
+		waddr_ren=1'b1;
+
+		
+	end
+endtask
+
+// for read
+task read;
+	begin
+		@(negedge pclk)
+		raddr_ctrl_rdata = {3'b1,4'b0001,3'b010,4'b1001,32'h6418,4'b0010};   //{Awprot,Awburst,Awsize,Awlen,Awaddr,Awid};
+		raddr_fifo_empty = 1'b0;
+		raddr_ren=1'b0;
+		
+		#110;
+		
+		@(negedge pclk)
+		raddr_ctrl_rdata = {3'b1,4'b0000,3'b011,4'b010,32'h8,4'b0001};   //{Awprot,Awburst,Awsize,Awlen,Awaddr,Awid};
+		
+		#40;
+
+		@(negedge pclk)
+		raddr_fifo_empty = 1'b1;
+		raddr_ren=1'b1;
+	end
+endtask
+
+
+initial 
+begin
+	$dumpfile("waves.addr_calc");
+	$dumpvars(0,addr_calc_tb);
+end
+
+initial
+begin
+	initialize;
+	reset;
+	write;
+	read;
+	#200 $finish;
+end
+
+endmodule

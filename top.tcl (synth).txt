@@ -1,0 +1,32 @@
+remove_design -all
+set search_path {../../lib}
+set target_library {lsi_10k.db}
+set link_library "* lsi_10k.db"
+
+analyze -format verilog {../../rtl/sram.v ../../rtl/dp_fifo.v ../../rtl/sync_fifo.v ../../rtl/sync_sram.v ../../rtl/fifo_sb.v ../../rtl/apb_csr.v ../../rtl/AXI_slave.v ../../rtl/apb_master_if.v ../../rtl/addr_cal.v ../../rtl/arbiter.v ../../rtl/apb_slave_selector.v ../../rtl/axi_2_apb_top.v ../../rtl/pulse_sync.v ../../rtl/sync_2dff.v }
+
+
+elaborate axi_2_apb_top
+
+set_dont_touch [get_designs *sync_sram*]
+set_dont_touch [get_designs *dp_sram*]
+
+link
+
+source ./axi_2_apb_top.con
+
+check_design
+
+current_design  axi_2_apb_top
+
+#compile_ultra
+
+compile_ultra -no_autoungroup
+
+report_timing -path full > timing_report_axi_2_apb_top.txt
+
+report_area > area_report_axi_2_apb_top.txt
+
+report_power > power_report_axi_2_apb_top.txt
+
+write_file -f verilog -hier -output axi_2_apb_top_netlist.v

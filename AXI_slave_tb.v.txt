@@ -1,0 +1,190 @@
+//`timescale 1ns/1ps
+module AXI_slave_tb;
+      	      
+		 reg Aclk,Aresetn;
+		 
+		 reg [3:0] Awid;
+		 reg [31:0] Awaddr;
+		 reg [3:0] Awlen;
+		 reg [2:0] Awsize;
+		 reg [1:0] Awburst;
+		 reg [2:0] Awprot;
+		 reg Awvalid;
+		 wire Awready;
+
+		 reg [31:0] Wdata;
+	 	 reg [3:0] Wstrb;
+		 reg Wlast,Wvalid;
+		 wire Wready;
+
+		 wire [3:0] Bid;
+	 	 wire [1:0] Bresp;
+		 wire Bvalid;
+		 reg Bready;
+
+		 reg [3:0] Arid;
+		 reg [31:0] Araddr;
+		 reg [3:0] Arlen;
+		 reg [2:0] Arsize;
+	 	 reg [1:0] Arburst;
+	         reg [2:0] Arprot;
+		 reg Arvalid;
+	 	 wire Arready;
+
+		 wire [3:0] Rid;
+		 wire [31:0]  Rdata;
+		 wire [1:0] rresp;
+		 reg Rready;
+		 wire Rlast;
+		 wire Rvalid;
+
+	         wire [47:0] w_addr_ctrl;
+		 wire w_addr_wen;
+		 reg w_addr_full;
+
+		 wire [36:0] w_data_ctrl;
+		 wire w_data_wen;
+		 reg w_data_full;
+
+		 wire [47:0] r_addr_ctrl;
+		 wire r_addr_wen;
+		 reg r_addr_full;
+
+		 reg [38:0] r_data_ctrl;
+		 reg r_data_empty;
+		 wire r_data_ren;
+
+		 reg [1:0] wr_resp_2_axi;
+		 reg [3:0] wr_bid_2_axi;
+		 
+		 reg mstr_wr_2_axi;
+		 reg use_mwerr_resp;
+
+AXI_slave DUT(Aclk,Aresetn,
+	      Awid,Awaddr,Awlen,Awsize,Awburst,Awprot,Awvalid,Awready,
+	      Wdata,Wstrb,Wlast,Wvalid,Wready,
+	      Bid,Bresp,Bvalid,Bready,
+	      Arid,Araddr,Arlen,Arsize,Arburst,Arprot,Arvalid,Arready,
+	      Rid,Rdata,rresp,Rready,Rlast,Rvalid,
+	      w_addr_ctrl,w_addr_wen,w_addr_full,
+	      w_data_ctrl,w_data_wen,w_data_full,
+	      r_addr_ctrl,r_addr_wen,r_addr_full,
+	      r_data_ctrl,r_data_empty,r_data_ren,
+	      wr_resp_2_axi,wr_bid_2_axi,
+	      mstr_wr_2_axi,use_mwerr_resp);
+
+initial
+begin
+	Aclk=1'b0;
+	forever #5 Aclk=~Aclk;
+end
+
+task reset;
+	begin
+		@(negedge Aclk)
+		Aresetn=1'b0;
+		@(negedge Aclk)
+		Aresetn=1'b1;
+	end
+endtask
+
+task initialize;
+	begin
+		{Awid,Awaddr,Awlen,Awsize,Awburst,Awprot,Awvalid}=0;
+		{Wdata,Wstrb,Wlast,Wvalid}=0;
+		{Bready}=0;
+		{Arid,Araddr,Arlen,Arsize,Arburst,Arprot,Arvalid}=0;
+		{Rready}=0;
+		{w_addr_full,w_data_full,r_addr_full}=0;
+		{r_data_ctrl,r_data_empty}=0;
+		{wr_resp_2_axi,wr_bid_2_axi}=0;
+	        {mstr_wr_2_axi,use_mwerr_resp}=0;
+	end
+endtask
+
+task write_add(input [3:0] id,input [31:0] addr,input [3:0] len,input [2:0] size,input [1:0] burst,input [1:0] prot,input valid,full);
+	begin
+		Awid=id;
+		Awaddr=addr;
+		Awlen=len;
+		Awsize=size;
+		Awburst=burst;
+		Awprot=prot;
+		Awvalid=valid;
+		w_addr_full=full;
+	end
+endtask
+
+task write_data(input [31:0] data,input [3:0] strb,input last,vld,data_full);
+	begin
+		Wdata=data;
+		Wstrb=strb;
+		Wlast=last;
+		Wvalid=vld;
+		w_data_full=data_full;
+	end
+endtask
+
+
+task read_add(input [3:0] id,input [31:0] addr,input [3:0] len,input [2:0] size,input [1:0] burst,prot,input valid,full);
+	begin
+		Arid=id;
+		Araddr=addr;
+		Arlen=len;
+		Arsize=size;
+		Arburst=burst;
+		Arprot=prot;
+		Arvalid=valid;
+		r_addr_full=full;
+	end
+endtask
+
+
+task read_data(input ready,input [38:0] ctrl,input empty);
+	begin
+		Rready=ready;
+		r_data_ctrl=ctrl;
+		r_data_empty=empty;
+
+	end
+endtask
+
+task response(input ready,input [1:0] resp_2_axi,input [3:0] bid_2_axi,input mstr_2_axi,mwerr_resp);
+	begin
+		Bready=ready;
+		wr_resp_2_axi=resp_2_axi;
+		wr_bid_2_axi=bid_2_axi;
+		mstr_wr_2_axi=mstr_2_axi;
+		use_mwerr_resp=mwerr_resp;
+	end
+endtask
+
+initial
+begin
+	 $dumpfile("waves.AXI_slave");
+	 $dumpvars(0,AXI_slave_tb);
+end
+
+initial
+begin
+	initialize;	
+	reset;
+	write_add(4'b0001,32'h0048,4'b0010,3'b000,2'b01,3'bxxx,1'b1,1'b1);
+	write_data(32'h0415,3'b011,1'b0,1'b1,1'b0);
+	read_add(4'b1100,32'h1479,4'b1010,3'b001,2'b10,2'b01,1'b1,1'b0);
+	read_data(1'b1,39'h023,1'b0);
+	response(1'b1,2'b10,4'b1111,1'b1,1'b1);
+
+/*	repeat(20)
+	begin
+	write_add($random,$random,$random,$random,$random,$random,$random,$random);
+	write_data($random,$random,$random,$random,$random);
+	read_add($random,$random,$random,$random,$random,$random,$random,$random);
+	read_data($random,$random,$random);
+	response($random,$random,$random,$random,$random);
+	end*/
+
+	#100 $finish;
+end
+
+endmodule

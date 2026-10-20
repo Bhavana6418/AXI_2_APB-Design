@@ -1,0 +1,70 @@
+module sync_fifo_tb#(parameter AW=3,DW=8);
+		   reg clk,rstn,push;
+		   reg [DW-1:0] write_data;
+		   wire almost_full;
+		   reg pop;
+		   wire [DW-1:0] read_data;
+		   wire empty;
+
+sync_fifo#(AW,DW) u_sfifo(clk,rstn,push,write_data,almost_full,pop,read_data,empty);
+
+initial
+begin
+	clk=1'b0;
+	forever #5 clk=~clk;
+end
+
+task reset;
+	begin
+		@(negedge clk)
+		rstn=1'b0;
+		@(negedge clk)
+		rstn=1'b1;
+	end
+endtask
+
+task initialize;
+	begin
+		{push,write_data,pop}=0;
+	end
+endtask
+
+task write(input a,input [DW-1:0] data);
+	begin
+		@(negedge clk)
+		push=a;
+		write_data=data;
+		@(negedge clk)
+		push=1'b0;
+	end
+endtask
+
+task read(input b);
+	begin
+		@(negedge clk)
+		pop=b;
+		@(negedge clk)
+		pop=1'b0;
+	end
+endtask
+
+initial 
+begin
+	$dumpfile("waves.sync_fifo");
+	$dumpvars(0,sync_fifo_tb);
+end
+
+initial
+begin
+	initialize;
+	reset;
+	repeat(8)
+	write(1'b1,$random);
+
+	repeat(8)
+	read(1'b1);
+	
+	#100 $finish;
+end
+
+endmodule

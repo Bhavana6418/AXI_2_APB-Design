@@ -1,0 +1,82 @@
+module arbiter_tb;
+	reg clk,rstn;
+       	reg wr_avail,ra_avail,rd_avail;
+        reg wr,rd;
+	reg [2:0] ratio;
+	wire wr_en,rd_en;
+
+arbiter DUT(clk,rstn,wr_avail,ra_avail,rd_avail,wr,rd,ratio,wr_en,rd_en);
+
+initial
+begin
+	clk=1'b0;
+	forever 
+	#5 clk=~clk;
+end
+
+task reset;
+	begin
+		@(negedge clk)
+		rstn = 1'b0;
+		@(negedge clk)
+		rstn = 1'b1;
+	end
+endtask
+
+task initialize;
+	begin
+		{wr_avail,ra_avail,rd_avail} = 0;
+        	{wr,rd} = 0;
+		ratio = 0;
+	end
+endtask
+
+task write(input write,avail);
+	begin
+		@(negedge clk)
+		wr_avail = avail;
+		wr = write;
+	end
+endtask
+
+task read(input read,addr_avail,data_avail);
+	begin
+		@(negedge clk)
+		rd_avail = data_avail;
+		ra_avail = addr_avail;
+		rd = read;
+	end
+endtask
+
+task ratioo(input [2:0]r);
+	begin
+		@(negedge clk)
+		ratio = r;
+	end
+endtask
+
+initial 
+begin
+	 $dumpfile("waves.arbiter");
+	 $dumpvars(0,arbiter_tb);
+end
+	
+initial
+begin
+	initialize;
+	reset;
+/*	read(0,1,1);
+	read(1,1,1);
+	read(1,1,0);
+	#10;
+	write(0,1);
+	write(1,1);
+	write(0,0);
+
+	#20;*/
+       	
+	
+	#100 $finish;
+end
+
+endmodule

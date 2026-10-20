@@ -1,0 +1,96 @@
+module apb_slave_selector_tb #(parameter AW=32,
+			    parameter DW=32,
+			    parameter IW=4,
+			    parameter LW=4);
+
+			     reg PSELx,PWRITE,PENABLE;
+			     reg [2:0] PPROT;
+			     reg [AW-1:0] PADDR;
+			     reg [DW-1:0] PWDATA;
+			     reg [(DW/8)-1:0] PSTRB;
+			     wire PSLVERR,PREADY;
+			     wire [DW-1:0] PRDATA;
+			     wire decode_err;
+
+			     wire [10:0] psel;
+			     wire pwrite,penable;
+			     wire [2:0] pprot;
+			     wire [AW-1:0] paddr;
+			     wire [DW-1:0] pwdata;
+			     wire [(DW/8)-1:0] pstrb;
+			     reg [10:0] pslverr,pready;
+			     reg [DW-1:0] prdata_0,prdata_1,prdata_2,prdata_3,prdata_4,prdata_5,prdata_6,prdata_7,prdata_8,prdata_9,prdata_10;
+
+apb_slave_selector APB_SLAVE_DUT(PSELx,PWRITE,PENABLE,PPROT,PADDR,PWDATA,PSTRB,PSLVERR,PREADY,PRDATA,decode_err,psel,pwrite,penable,pprot,paddr,pwdata,pstrb,pslverr,pready,prdata_0,prdata_1,prdata_2,prdata_3,prdata_4,prdata_5,prdata_6,prdata_7,prdata_8,prdata_9,prdata_10);
+
+task initialize;
+	begin
+		 {PSELx,PWRITE,PENABLE,PPROT,PADDR,PWDATA,PSTRB}=0;
+		 {pslverr,pready}=0;
+		 {prdata_0,prdata_1,prdata_2,prdata_3,prdata_4,prdata_5,prdata_6,prdata_7,prdata_8,prdata_9,prdata_10}={$random,$random,$random,$random,$random,$random,$random,$random,$random,$random,$random};
+	 end
+endtask
+
+task write (input [31:0] addr);
+begin
+	PSELx = 1'b1;
+	PWRITE = 1'b1;
+	PPROT = 3'b1;
+	PADDR = addr;
+	PWDATA = $random;
+	PSTRB = 4'b1111;
+	pslverr = 0;
+	PENABLE = 1'b1;
+
+	pready = 1;
+end
+endtask
+
+task read(input [31:0] addr);;
+begin	
+	PSELx = 1'b1;
+	PWRITE = 1'b0;
+	PPROT = 3'b1;
+	PADDR = addr;
+	PWDATA = $random;
+	PSTRB = 4'b1111;
+	pslverr = 0;
+	PENABLE = 1'b1;
+	pready = 1;
+
+	end
+endtask
+
+initial
+begin
+	 $dumpfile("waves.apb_slave_Selector");
+	 $dumpvars(0,apb_slave_selector_tb);
+end
+
+initial
+begin
+	initialize;
+	#10	write(32'h4000_3600);
+	#10	read(32'h4000_6400);
+
+	#10	write(32'h4000_7392);
+	#10	read(32'h4000_2345);
+
+        #10	write($random);
+	#10	read($random);
+
+	#10;
+
+
+	pready=0;
+	PSELx=0;
+
+    
+
+	
+//	#10 read;
+
+	#500 $finish;
+end
+
+endmodule

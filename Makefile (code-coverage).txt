@@ -1,0 +1,59 @@
+# RTL & TB
+RTL = ../../rtl/*.v   
+TB1 = ../../tb/axi_2_apb_top_tb.v
+
+# Library
+LIB = axi_apb 
+
+# Coverage options
+# b = branch, c = condition, s = statement, f = FSM, t = toggle
+COVOP = +cover=bcsft -coveropt 3 +acc
+
+# Simulation options
+TOP = axi_2_apb_top_tb
+VSIMOPT = -coverage -vopt $(TOP)
+
+# Coverage DB (IMPORTANT: file, not folder)
+UCDB = axi_apb.ucdb
+
+# Batch run
+VSIMCOV = coverage save -onexit -codeAll $(UCDB)
+VSIMBATCH = -c -do "$(VSIMCOV); run -all; exit"
+
+# --------------------------------------------------
+
+lib:
+	vlib $(LIB)
+	vmap work $(LIB)
+
+help:
+	@echo ===================================================================
+	@echo " USAGE   	--  make target"
+	@echo " clean   	=>  clean files"
+	@echo " lib     	=>  create library"
+	@echo " run_tb1 	=>  compile + simulate"
+	@echo " run1    	=>  full flow (clean → run → report)"
+	@echo " report  	=>  generate coverage report"
+	@echo " html    	=>  open report"
+	@echo ===================================================================
+
+# Compile + Simulate
+run_tb1: lib
+	vlog -work $(LIB) $(COVOP) $(RTL) $(TB1)
+	vsim $(VSIMOPT) $(VSIMBATCH)
+
+# Coverage Report
+report:
+	vcover report -details -codeAll -html $(UCDB)
+
+# Full Flow
+run1: clean lib run_tb1 report html
+
+# Open HTML Report
+html:
+	firefox covhtmlreport/index.html &
+
+# Clean
+clean:
+	rm -rf modelsim.ini transcript cov* $(LIB) *.ucdb covhtmlreport
+	clear

@@ -1,0 +1,428 @@
+module apb_master_if_tb #(parameter AW=32,
+		          parameter DW=32,
+		          parameter LW=4,
+		          parameter IW=4);
+
+			  reg [AW+LW+IW+2:0] awaddr_ctrl;
+		       	  wire waddr_ren;
+		          reg waddr_fe;
+		       
+		          reg [(DW/8)+DW:0] wdata_strb;
+		          wire data_ren;
+		          reg data_fe;
+
+		          reg [AW+LW+IW+2:0] araddr_ctrl;
+		          wire raddr_ren;
+		          reg raddr_fe;
+
+		          wire [DW+IW+2:0] rdata_serr;
+		          wire rdata_wen;
+		          reg rdata_ff;
+
+		          wire [1:0] wr_resp_2_axi;
+		          wire [IW-1:0] wr_resp_id_2_axi;
+		          wire wr_2_axi;
+		          wire rd_2_axi;
+
+		          reg [2:0] access_ratio;
+
+		          reg PCLK,PRESETn;
+		          wire PSEL,PENABLE;
+		          wire [AW-1:0] PADDR;
+		          wire [2:0] PPROT;
+		          wire PWRITE;
+		          wire [DW-1:0] PWDATA;
+		          wire [3:0] PSTRB;
+		          reg PREADY;
+		          reg [DW-1:0] PRDATA;
+		          reg PSLVERR,decode_err;
+
+apb_master_if APB_MASTER_DUT(awaddr_ctrl,waddr_ren,waddr_fe,wdata_strb,data_ren,data_fe,araddr_ctrl,raddr_ren,raddr_fe,rdata_serr,rdata_wen,rdata_ff,wr_resp_2_axi,wr_resp_id_2_axi,wr_2_axi,access_ratio,PCLK,PRESETn,PSEL,PENABLE,PADDR,PPROT,PWRITE,PWDATA,PSTRB,PREADY,PRDATA,PSLVERR,decode_err);
+
+initial
+begin
+	PCLK = 1'b0;
+	forever 
+	#5 PCLK = ~PCLK;
+end
+
+task initialize;
+	begin
+		awaddr_ctrl=0;
+		waddr_fe=1;
+		wdata_strb=0;
+		data_fe=1;
+		araddr_ctrl=0;
+		raddr_fe=1;
+		rdata_ff=1;
+		access_ratio=0;
+		PREADY=0;
+		PRDATA=0;
+		PSLVERR=0;
+		PSLVERR=0;
+		decode_err=0;
+
+		decode_err=0;
+	end
+endtask
+
+task reset;
+	begin
+		@(negedge PCLK)
+		PRESETn = 1'b0;
+		@(negedge PCLK)
+		PRESETn = 1'b1;
+	end
+endtask
+
+task write(input last);
+	begin
+		@(negedge PCLK)
+		awaddr_ctrl = {3'd1,4'd3,32'd586,4'd2};
+		waddr_fe = 1'b0;
+		// data = last,wstrb,wdata
+		wdata_strb={last,4'd1,32'd50};
+		data_fe = 1'b0;
+		
+		@(negedge PCLK)
+		@(negedge PCLK)
+		PREADY = 1;
+
+		@(negedge PCLK)
+		waddr_fe = 1'b1;
+		data_fe = 1'b1;
+		PREADY = 0;
+	end
+endtask
+
+task read;
+	begin
+		@(negedge PCLK)
+		araddr_ctrl = 43'h22586418;
+		raddr_fe = 1'b0;
+		PRDATA = 32'h4942;
+		rdata_ff = 1'b0;
+
+		@(negedge PCLK)
+		PREADY = 1;
+
+		@(negedge PCLK)
+		raddr_fe = 1'b1;
+		rdata_ff = 1'b1;
+		PREADY = 0;
+
+		/*	
+		task read_addr(input [3:0] len);
+		integer i;
+		begin
+			@(negedge PCLK)
+			//     w_addr_ctrl = {AWPROT,AWBURST,AWSIZE,AWLEN,AWADDR,AWID}; from axi
+			//	waddr_ctrl_rdata = {3'd1,2'd1,3'd1,4'd3,32'd50,4'd2};
+			//w_read_prot_addr_id = {arprot,arlen,read_next_address,arid};from address cal write fifo
+				araddr_ctrl = {3'd1,len,32'd50,4'd2};
+				raddr_fe = 1'b0;
+			//	PRDATA=32'd70;
+				rdata_ff = 1'b0;
+				i=1;
+			@(negedge PCLK);
+			@(negedge PCLK)
+				PREADY = 1;
+				PRDATA=32'd70;
+			repeat(len)
+				begin
+				@(negedge PCLK)
+					araddr_ctrl = {3'd1,len,32'd50+i,4'd2};
+					raddr_fe = 1'b0;
+					rdata_ff = 1'b0;
+					PREADY = 0;
+				@(negedge PCLK)
+			 		PREADY = 1;
+					PRDATA=32'd70+i;
+				i=i+1;
+				end
+			@(negedge PCLK);
+			@(posedge PCLK);
+				raddr_fe = 1'b1;
+				rdata_ff = 1'b1;
+				PREADY = 0;
+				PRDATA=0;
+
+*/
+	end
+endtask
+
+
+/*
+task csr;
+	begin
+		@(negedge PCLK)
+		awaddr_ctrl = {3'd1,4'd3,32'd50,4'd2};
+		waddr_fe = 1'b0;
+		// data = last,wstrb,wdata
+		wdata_strb = {37'h3421};
+		data_fe = 1'b0;
+
+		araddr_ctrl = {3'd1,4'd3,32'd325,4'd2};
+
+		raddr_fe = 1'b0;
+		PRDATA = 32'h4942;
+		rdata_ff = 1'b0;
+
+		araddr_ctrl = {3'd1,4'd3,32'd418,4'd2};
+
+		raddr_fe = 1'b0;
+		PRDATA = 32'h4942;
+		rdata_ff = 1'b0;
+
+
+		access_ratio = 010;
+
+		@(negedge PCLK)
+		PREADY = 1;
+		raddr_fe = 1'b1;
+		rdata_ff = 1'b1;
+
+		@(negedge PCLK)
+		@(negedge PCLK)
+		@(negedge PCLK)
+		PREADY = 0;
+
+		@(negedge PCLK)
+		PREADY = 1;
+		waddr_fe = 1'b1;
+		data_fe = 1'b1;
+
+		@(negedge PCLK)
+		@(negedge PCLK)
+		@(negedge PCLK)
+
+		@(negedge PCLK)
+		PREADY = 0;
+end
+endtask
+*/
+
+				
+task ratio_001(input [3:0] len);
+	integer i;
+	begin
+	   @(negedge PCLK);
+	   //csr 001;
+	   access_ratio = 3'b001;
+	   awaddr_ctrl = {3'd1,4'd0,32'd56,4'd4};
+           waddr_fe = 1'b0;
+	   wdata_strb = {1'b1,4'd15,32'd23};
+	   data_fe = 1'b0;
+	   araddr_ctrl = {3'd1,4'd0,32'd356,4'd4};
+           raddr_fe = 1'b0;
+	   PRDATA = 32'h23100;
+	   rdata_ff = 1'b0;
+	   @(negedge PCLK);
+	   @(negedge PCLK);
+	   @(negedge PCLK);
+	   @(negedge PCLK);
+	   PREADY = 1;
+	   @(negedge PCLK);
+	   PREADY = 0;
+	   @(negedge PCLK);
+	   PREADY = 1;waddr_fe = 1'b1;data_fe = 1'b1;raddr_fe = 1'b1;rdata_ff = 1'b1;
+	   @(negedge PCLK);
+	   PREADY = 0;
+
+	end
+endtask
+
+task ratio_011(input [3:0] len);
+	integer i;
+	begin
+	   @(negedge PCLK);
+	   //csr 011;
+	   access_ratio = 3'b011;
+	   awaddr_ctrl = {3'd1,4'd0,32'd656,4'd1};
+           waddr_fe = 1'b0;
+	   wdata_strb = {1'b1,4'd15,32'd623};
+	   data_fe = 1'b0;
+	   araddr_ctrl = {3'd1,4'd2,32'd356,4'd1};
+           raddr_fe = 1'b0;
+	   PRDATA = 32'h23100;
+	   rdata_ff = 1'b0;
+	   @(negedge PCLK);
+	   @(negedge PCLK);
+	   @(negedge PCLK);
+	   @(negedge PCLK);
+	   PREADY = 1;
+	   awaddr_ctrl = {3'd1,4'd0,32'd656,4'd1};
+           waddr_fe = 1'b0;
+	   wdata_strb = {1'b1,4'd15,32'd23};
+	   data_fe = 1'b0;
+	   araddr_ctrl = {3'd1,4'd2,32'd358,4'd1};
+           raddr_fe = 1'b0;
+	   PRDATA = 32'h23200;
+	   rdata_ff = 1'b0;
+	   @(negedge PCLK);
+	   PREADY = 0;
+	   @(negedge PCLK);
+	   PREADY = 1;
+	   awaddr_ctrl = {3'd1,4'd0,32'd656,4'd1};
+           waddr_fe = 1'b0;
+	   wdata_strb = {1'b1,4'd15,32'd23};
+	   data_fe = 1'b0;
+	   araddr_ctrl = {3'd1,4'd2,32'd360,4'd1};
+           raddr_fe = 1'b0;
+	   PRDATA = 32'h23100;
+	   rdata_ff = 1'b0;
+	   @(negedge PCLK);
+	   PREADY = 0;
+           @(negedge PCLK);
+	   PREADY = 1;
+	   @(negedge PCLK);
+	   PREADY = 0;
+	   @(negedge PCLK);
+	   PREADY = 1;waddr_fe = 1'b1;data_fe = 1'b1;raddr_fe = 1'b1;rdata_ff = 1'b1;
+	   @(negedge PCLK);
+	   PREADY = 0;
+
+           @(negedge PCLK);
+	   //csr 011;
+	   access_ratio = 3'b011;
+	   awaddr_ctrl = {3'd1,4'd0,32'd656,4'd1};
+           waddr_fe = 1'b0;
+	   wdata_strb = {1'b1,4'd15,32'd623};
+	   data_fe = 1'b0;
+	   araddr_ctrl = {3'd1,4'd2,32'd356,4'd1};
+           raddr_fe = 1'b0;
+	   PRDATA = 32'h23100;
+	   rdata_ff = 1'b0;
+	   @(negedge PCLK);
+	   @(negedge PCLK);
+	   @(negedge PCLK);
+	   @(negedge PCLK);
+	   PREADY = 1;
+	   awaddr_ctrl = {3'd1,4'd0,32'd656,4'd1};
+           waddr_fe = 1'b0;
+	   wdata_strb = {1'b1,4'd15,32'd23};
+	   data_fe = 1'b0;
+	   araddr_ctrl = {3'd1,4'd2,32'd358,4'd1};
+           raddr_fe = 1'b0;
+	   PRDATA = 32'h23200;
+	   rdata_ff = 1'b0;
+	   @(negedge PCLK);
+	   PREADY = 0;
+	   @(negedge PCLK);
+	   PREADY = 1;
+	   awaddr_ctrl = {3'd1,4'd0,32'd656,4'd1};
+           waddr_fe = 1'b0;
+	   wdata_strb = {1'b1,4'd15,32'd23};
+	   data_fe = 1'b0;
+	   araddr_ctrl = {3'd1,4'd2,32'd360,4'd1};
+           raddr_fe = 1'b0;
+	   PRDATA = 32'h23100;
+	   rdata_ff = 1'b0;
+	   @(negedge PCLK);
+	   PREADY = 0;
+           @(negedge PCLK);
+	   PREADY = 1;
+	   @(negedge PCLK);
+	   PREADY = 0;
+	   @(negedge PCLK);
+	   PREADY = 1;waddr_fe = 1'b1;data_fe = 1'b1;raddr_fe = 1'b1;rdata_ff = 1'b1;
+	   @(negedge PCLK);
+	   PREADY = 0;
+
+
+	end
+endtask
+
+task ratio_100(input [3:0] len);
+	integer i;
+	begin
+	   @(negedge PCLK);
+	   //csr 100;
+	   access_ratio = 3'b100;
+	   awaddr_ctrl = {3'd1,4'd0,32'd56,4'd10};
+           waddr_fe = 1'b0;
+	   wdata_strb = {1'b1,4'd10,32'd6723};
+	   data_fe = 1'b0;
+	   araddr_ctrl = {3'd1,4'd0,32'd9356,4'd10};
+           raddr_fe = 1'b0;
+	   PRDATA = 32'd455;
+	   rdata_ff = 1'b0;
+	   //@(negedge PCLK);
+	   //@(negedge PCLK);
+	   @(negedge PCLK);
+	   @(negedge PCLK);
+	   PREADY = 1;
+	   @(negedge PCLK);
+	   PREADY = 0;
+	   @(negedge PCLK);
+	   PREADY = 1;waddr_fe = 1'b1;data_fe = 1'b1;raddr_fe = 1'b1;rdata_ff = 1'b1;
+	   @(negedge PCLK);
+	   PREADY = 0;
+
+	end
+endtask
+
+task ratio_110(input [3:0] len);
+	integer i;
+	begin
+	   @(negedge PCLK);
+	   //csr 110;
+	   access_ratio = 3'b110;
+	   awaddr_ctrl = {3'd0,4'd1,32'd6,4'd14};
+           waddr_fe = 1'b0;
+	   wdata_strb = {1'b0,4'd15,32'd6203};
+	   data_fe = 1'b0;
+	   araddr_ctrl = {3'd1,4'd0,32'd356,4'd12};
+           raddr_fe = 1'b0;
+	   PRDATA = 32'h999;
+	   rdata_ff = 1'b0;
+	   @(negedge PCLK);
+	   @(negedge PCLK);
+	   @(negedge PCLK);
+	   @(negedge PCLK);
+	   PREADY = 1;
+	   awaddr_ctrl = {3'd0,4'd1,32'd8,4'd14};
+           waddr_fe = 1'b0;
+	   wdata_strb = {1'b1,4'd15,32'd203};
+	   data_fe = 1'b0;
+	   araddr_ctrl = {3'd1,4'd0,32'd356,4'd12};
+           raddr_fe = 1'b0;
+	   PRDATA = 32'h999;
+	   rdata_ff = 1'b0;
+	   @(negedge PCLK);
+	   PREADY = 0;
+	   @(negedge PCLK);
+	   PREADY = 1;
+	   @(negedge PCLK);
+	   PREADY = 0;
+	   @(negedge PCLK);
+	   PREADY = 1;waddr_fe = 1'b1;data_fe = 1'b1;raddr_fe = 1'b1;rdata_ff = 1'b1;
+	   @(negedge PCLK);
+	   PREADY = 0;
+
+			
+	end
+endtask
+
+initial
+begin
+	 $dumpfile("waves.apb_master_if");
+	 $dumpvars(0,apb_master_if_tb);
+end
+
+initial
+begin
+	initialize;
+	reset;
+//	csr;
+
+	write(0);
+	write(1);
+	//read;
+//	raddr_fe=0;
+//	rdata_ff=0;
+	
+	#100 $finish;
+end
+
+endmodule
