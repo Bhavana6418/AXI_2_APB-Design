@@ -1,0 +1,22 @@
+`timescale 1ns/1ps 
+module sync_2dff #(parameter DW=1) 
+		  (input rstn,clk,
+		   input [DW-1:0] d,
+		   output reg [DW-1:0] q);
+
+	   	   reg [DW-1:0] meta1;
+
+		   always@(posedge clk or negedge rstn)
+		   begin
+			   if(!rstn)
+			   begin
+				   q<= 'b0;
+				   meta1<= 'b0;
+			   end
+			   else
+			   begin
+				   meta1<=d;
+				   q<=meta1;
+			   end
+		   end
+endmodule

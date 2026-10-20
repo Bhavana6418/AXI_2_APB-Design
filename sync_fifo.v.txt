@@ -1,0 +1,111 @@
+`timescale 1ns/1ps 
+module sync_fifo #(parameter AW=3,DW=8)(
+		   input clk,rstn,push,
+		   input [DW-1:0] write_data,
+		   output reg almost_full,
+		   input pop,
+		   output [DW-1:0] read_data,
+		   output reg empty);
+
+parameter DEPTH = 2**AW;
+parameter ALMOST_FULL = DEPTH-3;
+
+reg [AW-1:0]wr_ptr,rd_ptr;
+reg [AW:0] fifo_ptr;
+wire wr_vld,rd_vld;
+reg full;
+
+sync_sram#(.AW(AW),.DW(DW),.DEPTH(DEPTH))
+				  DUT(.clk(clk),
+			    	      .wen(wr_vld),
+			  	      .ren(rd_vld),
+			    	      .waddr(wr_ptr),
+			    	      .raddr(rd_ptr),
+			    	      .wdata(write_data),
+			    	      .rdata(read_data));
+
+////////////////////////// for wr_ptr ///////////////////////////
+
+assign wr_vld = push & ~full;
+
+always@(posedge clk or negedge rstn)
+begin
+	if(!rstn)
+		wr_ptr <= 'b0;
+	else
+	begin
+		if(wr_vld)
+			wr_ptr<=wr_ptr+1'b1;
+		else
+			wr_ptr<=wr_ptr;
+	end
+end
+
+////////////////////////// for rd_ptr ///////////////////////////
+
+assign rd_vld = pop & ~empty;
+
+always@(posedge clk or negedge rstn)
+begin
+	if(!rstn)
+		rd_ptr <= 'b0;
+	else
+	begin
+		if(rd_vld)
+			rd_ptr<=rd_ptr+1'b1;
+		else
+			rd_ptr<=rd_ptr;
+	end
+end
+
+//////////////////////// for fifo pointer ////////////////////////
+
+always@(posedge clk or negedge rstn)
+begin
+	if(!rstn)
+		fifo_ptr<= 'b0;
+	else
+	begin
+		if(wr_vld && !rd_vld)
+			fifo_ptr<=fifo_ptr+1'b1;
+		else
+		begin
+			if(rd_vld && !wr_vld)
+				fifo_ptr<=fifo_ptr-1'b1;
+			else
+				fifo_ptr<=fifo_ptr;
+		end
+	end
+end
+
+//////////////////////// for empty signal /////////////////////////
+
+always@(*)
+begin
+	if(fifo_ptr==0)
+		empty=1'b1;
+	else
+		empty=1'b0;
+end
+
+/////////////////////// for full signal //////////////////////////
+
+always@(*)
+begin
+	if(fifo_ptr==DEPTH)
+		full= 1'b1;
+	else
+		full=1'b0;
+end
+
+/////////////////////// for almost full /////////////////////////e/
+
+always@(*)
+begin
+	if(fifo_ptr>=ALMOST_FULL)
+		almost_full=1'b1;
+	else
+		almost_full=1'b0;
+end
+
+endmodule
