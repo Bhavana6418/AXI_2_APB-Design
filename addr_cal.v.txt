@@ -1,0 +1,252 @@
+`timescale 1ns/1ps 
+module addr_cal #(parameter AW=32,
+		  parameter DW=32,
+		  parameter IW=4,
+	  	  parameter LW=4)
+
+		 (input pclk,presetn,
+		  input waddr_ren,
+		  input raddr_ren,
+		  input [AW+IW+LW+7:0] waddr_ctrl_rdata,
+		  input [AW+IW+LW+7:0] raddr_ctrl_rdata,
+		  input waddr_fifo_empty,
+		  input raddr_fifo_empty,
+		  output waddr_fifo_pop,
+		  output raddr_fifo_pop,
+		  output [AW+IW+LW+2:0] r_write_prot_addr_id,
+		  output [AW+IW+LW+2:0] r_read_prot_addr_id,
+		  output w_addr_fe,
+		  output r_addr_fe);
+
+// for write address
+wire  [AW+IW+LW+2:0] w_write_prot_addr_id; //43
+wire [AW-1:0] write_start_addr;
+reg [AW-1:0] write_next_addr;
+wire [(2**3):0] w_no_of_bytes;
+wire [IW-1:0] awid;
+wire [LW-1:0] awlen;
+wire [2:0] awprot;
+wire [2:0] awsize;
+wire [1:0] awburst;
+reg [LW:0] w_count;
+reg w_pop;
+reg w_addr_push;
+reg waddr_calc_progress;
+wire waddr_pop;
+wire w_addr_ff;
+
+// for read address
+wire [AW+IW+LW+2:0] w_read_prot_addr_id; //43
+wire [AW-1:0] read_start_addr;
+reg [AW-1:0] read_next_addr;
+wire [(2**3):0] r_no_of_bytes;
+wire [IW-1:0] arid;
+wire [LW-1:0] arlen;
+wire [2:0] arprot;
+wire [2:0] arsize;
+wire [1:0] arburst;
+reg [LW:0] r_count;
+reg r_pop;
+reg r_addr_push;
+reg raddr_calc_progress;
+wire raddr_pop;
+wire r_addr_ff;
+
+//wire waddr_pop_internal;
+
+//assign waddr_pop_internal = (waddr_ren && !waddr_fifo_empty);
+sync_fifo#(.AW(2+LW),.DW(AW+IW+LW+3)) sync_fifo_write_addr(.clk(pclk),
+				       .rstn(presetn),
+				       .push(w_addr_push),
+				       .write_data(w_write_prot_addr_id),
+		   		       .almost_full(w_addr_ff),
+		  		       .pop(waddr_ren),
+		   		       .read_data(r_write_prot_addr_id),
+		   		       .empty(w_addr_fe));
+
+sync_fifo#(.AW(2+LW),.DW(AW+IW+LW+3)) sync_fifo_read_addr (.clk(pclk),
+				       .rstn(presetn),
+				       .push(r_addr_push),
+				       .write_data(w_read_prot_addr_id),
+		   		       .almost_full(r_addr_ff),
+		  		       .pop(raddr_ren),
+		   		       .read_data(r_read_prot_addr_id),
+		   		       .empty(r_addr_fe));
+
+pulse_sync WPULSE_SYNC_DUT(.clk(pclk),
+			   .rstn(presetn),
+			   .d(waddr_pop),
+			   .p(waddr_fifo_pop));
+
+pulse_sync RPULSE_SYNC_DUT(.clk(pclk),
+			   .rstn(presetn),
+			   .d(raddr_pop),
+			   .p(raddr_fifo_pop));
+
+////////////////////////// for starting addr calculation //////////////////////  
+assign write_start_addr = waddr_ctrl_rdata[AW+IW-1:4]; //[35:4]
+assign read_start_addr = raddr_ctrl_rdata[AW+IW-1:4];  //[35:4]
+
+///////////////////////// for prot addr id ///////////////////////////////////
+assign w_write_prot_addr_id = {awprot,awlen,write_next_addr,awid};
+assign w_read_prot_addr_id = {arprot,arlen,read_next_addr,arid};
+
+///////////////////////// no of bytes we are sending /////////////////////////
+assign w_no_of_bytes = 2**awsize;
+assign r_no_of_bytes = 2**arsize;
+
+///////////////////////// id /////////////////////////
+assign awid = waddr_ctrl_rdata[IW-1:0]; //[3:0]
+assign arid = raddr_ctrl_rdata[IW-1:0]; //[3:0]
+
+///////////////////////// protection /////////////////////////
+assign awprot = waddr_ctrl_rdata[AW+IW+LW+7:AW+IW+LW+5]; //[47:45]
+assign arprot = raddr_ctrl_rdata[AW+IW+LW+7:AW+IW+LW+5]; //[47:45]
+
+///////////////////////// length of the data /////////////////////////
+assign awlen = waddr_ctrl_rdata[AW+IW+LW-1:AW+IW]; //[39:36]
+assign arlen = raddr_ctrl_rdata[AW+IW+LW-1:AW+IW]; //[39:36]
+
+///////////////////////// size of the data /////////////////////////
+assign awsize = waddr_ctrl_rdata[AW+IW+LW+2:AW+IW+LW]; //[42:40]
+assign arsize = raddr_ctrl_rdata[AW+IW+LW+2:AW+IW+LW]; //[42:40]
+
+///////////////////////// burst type /////////////////////////
+assign awburst = waddr_ctrl_rdata[AW+IW+LW+4:AW+IW+LW+3]; //[44:43]
+assign arburst = raddr_ctrl_rdata[AW+IW+LW+4:AW+IW+LW+3]; //[44:43]
+
+//for write count calculation
+always@(posedge pclk or negedge presetn)
+begin
+	if(!presetn)
+	begin
+		w_count<= 'b0;
+		w_pop<=1'b0;
+		w_addr_push<= 'b0;
+		waddr_calc_progress<= 'b0;
+	end
+	else
+	begin
+		if(w_count <= {1'b0,awlen})
+		begin
+			if(!w_addr_ff)
+			begin
+				w_count<=w_count+1'b1;
+				w_pop<=1'b0;
+				w_addr_push<=1'b1;
+				waddr_calc_progress<=1'b1;
+				if(awburst == 2'b00)
+					write_next_addr <= write_start_addr;
+				else
+					write_next_addr <= write_start_addr + (w_count * w_no_of_bytes);
+
+			end
+			else
+			begin
+				w_count<=w_count;
+				w_pop<=w_pop;
+				w_addr_push<=1'b0;
+				waddr_calc_progress<=waddr_calc_progress;
+			end
+		end
+		else
+		begin
+			if(waddr_fifo_pop)
+			begin
+				w_count<=0;
+				w_pop<=1'b1;
+			end
+
+			else
+			begin
+				w_count<=w_count;
+				w_pop<=w_pop;
+			end
+			
+			w_addr_push<=1'b0;
+			waddr_calc_progress<=1'b0;
+
+		end
+	end
+end
+
+
+assign waddr_pop = ((!waddr_fifo_empty) && (!waddr_calc_progress) && (!w_addr_ff) && (!w_pop)) ? 1'b1 : 1'b0;
+
+//for read count calculation
+always@(posedge pclk or negedge presetn)
+begin
+	if(!presetn)
+	begin
+		r_count<='b0;
+		r_pop<=1'b0;
+		r_addr_push<= 'b0;
+		raddr_calc_progress<= 'b0;
+	end
+	else
+	begin
+		if(r_count <= {1'b0,arlen})
+		begin
+			if(!r_addr_ff)
+			begin
+				r_count<=r_count+1'b1;
+				r_pop<=1'b0;
+				r_addr_push<=1'b1;
+				raddr_calc_progress<=1'b1;
+				if(arburst == 2'b00)
+					read_next_addr <= read_start_addr;
+				else
+					read_next_addr <= read_start_addr + (r_count * r_no_of_bytes); 			
+			end
+			else
+			begin
+				r_count<=r_count;
+				r_pop<=r_pop;
+				r_addr_push<=1'b0;
+				raddr_calc_progress<=raddr_calc_progress;
+			end
+		end
+		else
+		begin
+			if(raddr_fifo_pop)
+			begin
+				r_count<=1'b0;
+				r_pop<=1'b1;
+			end
+
+			else
+			begin
+				r_count<=r_count;
+				r_pop<=r_pop;
+			end
+
+			r_addr_push<=1'b0;
+			raddr_calc_progress<=1'b0;
+
+		end
+	end
+end
+
+assign raddr_pop = ((!raddr_fifo_empty) && (!raddr_calc_progress) && (!r_addr_ff) && (!r_pop)) ? 1'b1 : 1'b0;
+
+/*
+//for write next address
+always@(posedge pclk)
+begin
+	if(r_count <= {1'b0,arlen})
+	begin
+		if(!r_addr_ff)
+		begin
+			if(arburst == 2'b00)
+				read_next_addr <= read_start_addr;
+			else
+				read_next_addr <= read_start_addr + (r_count * r_no_of_bytes);
+		end
+		else
+			read_next_addr <= read_next_addr;
+	end
+	else 
+		read_next_addr <= read_next_addr;
+end*/
+
+endmodule  

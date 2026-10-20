@@ -1,0 +1,104 @@
+`timescale 1ns/1ps 
+module apb_csr #(parameter AW=32,
+		 parameter DW=32,
+		 parameter IW=4,
+		 parameter LW=4,
+	 	 parameter register_addr = 'h4000_A000)
+
+		 (input presetn,pclk,
+		  input psel,penable,
+		  input pwrite,
+		  input [AW-1:0] paddr,
+	  	  input [DW-1:0] pwdata,
+		  output reg [DW-1:0] prdata,
+		  output pready,
+		  output pslverr,
+		  output use_mwerr_resp,
+		  output [2:0] wr_rd_ratio);
+
+reg [DW-1:0] csr;
+wire ren,wen;
+
+//parameter register_addr = 'h4000_A000;
+
+// APB CSR FSM
+parameter IDLE = 2'b00, SETUP = 2'b01, ENABLE = 2'b10;
+
+reg [1:0] state,next_state;
+
+always@(posedge pclk or negedge presetn)
+begin
+	if(!presetn)
+		state <= IDLE;
+	else
+		state <= next_state;
+end
+
+always@(*)
+begin
+	next_state = IDLE;
+	case(state)
+		IDLE: begin
+			if(psel && !penable)
+				next_state = SETUP;
+		      	else
+				next_state = IDLE;
+		      end
+		SETUP: begin
+			if(psel && !penable)
+				next_state = SETUP;
+			else if(psel && penable)
+				next_state = ENABLE;
+			else
+				next_state = IDLE;
+		       end
+		ENABLE: begin
+			 if(psel)
+				 next_state = SETUP;
+			 else
+				 next_state = IDLE;
+			end
+		default : next_state = IDLE;
+	endcase
+end
+
+// prdata logic 
+
+always@(*)
+begin
+	if(ren)
+		prdata = csr;
+	else
+		prdata = 'b0;
+end
+
+always@(posedge pclk or negedge presetn)
+begin
+	if(!presetn)
+		csr <= 0;
+	else
+	begin
+		if(wen)
+			csr <= pwdata;
+		else
+			csr <= csr;
+	end
+end
+
+// for PRREADY SIGNAL
+assign pready = (state == ENABLE) ? 1'b1 : 1'b0;
+
+// for PSLVERR SIGNAL
+assign pslverr = (state == ENABLE) && (~(paddr == register_addr)) ? 1'b1 : 1'b0;
+
+// for WEN SIGNAL
+assign wen = (paddr == register_addr) && pwrite && (state == ENABLE);
+
+// for REN SIGNAL
+assign ren = (paddr == register_addr) && ~pwrite && (state == ENABLE);
+
+assign use_mwerr_resp = csr[DW-1];
+
+assign wr_rd_ratio = csr[2:0];
+
+endmodule

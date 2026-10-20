@@ -1,0 +1,154 @@
+`timescale 1ns/1ps 
+module dp_fifo #(parameter AW=3,DW=8)
+		(input wclk,wrstn,push,
+		 input [DW-1:0] wdata,
+		 output reg full,
+		 input rclk,rrstn,pop,
+		 output [DW-1:0] rdata,
+		 output reg empty);
+
+wire [AW:0]wp_binary_next,wp_gray_next;
+reg [AW:0] wp_binary,wp_gray;
+wire [AW:0]rp_binary_next,rp_gray_next;
+reg [AW:0] rp_binary,rp_gray;
+reg [AW:0] wp_sync_2r,wp_meta;
+reg [AW:0] rp_sync_2w,rp_meta;
+wire [AW:0] rp_sync_2w_binary;
+
+// instaniation //
+sram#(AW,DW) DUT(.wclk(wclk),
+		    .rclk(rclk),
+		    .wen(push),
+		    .ren(pop),
+		    .waddr(wp_binary[AW-1:0]),
+		    .raddr(rp_binary[AW-1:0]),
+		    .wdata(wdata),
+		    .rdata(rdata));
+
+///////////////////// for push signal logic //////////////////////
+
+always@(posedge wclk or negedge wrstn)
+begin
+	if(!wrstn)
+		wp_binary<= 'b0;
+	else
+	begin
+		if(push && !full)
+			wp_binary<=wp_binary_next;
+		else
+			wp_binary<=wp_binary;
+	end
+end
+
+assign wp_binary_next = wp_binary+ 'b1;
+
+//////////////////// for wp gray logic //////////////////////////
+
+always@(posedge wclk or negedge wrstn)
+begin
+	if(!wrstn)
+		wp_gray<= 'b0;
+	else
+	begin
+		if(push && !full)
+			wp_gray<=wp_gray_next;
+		else
+			wp_gray<=wp_gray;
+	end
+end
+
+assign wp_gray_next = wp_binary_next ^ {1'b0, wp_binary_next[AW:1]};
+
+
+
+///////////////////// for pop signal logic //////////////////////
+
+always@(posedge rclk or negedge rrstn)
+begin
+	if(!rrstn)
+		rp_binary<= 'b0;
+	else
+	begin
+		if(pop && !empty)
+			rp_binary<=rp_binary_next;
+		else
+			rp_binary<=rp_binary;
+	end
+end
+
+assign rp_binary_next = rp_binary+ 'b1;
+
+//////////////////// for wp gray logic //////////////////////////
+
+always@(posedge rclk or negedge rrstn)
+begin
+	if(!rrstn)
+		rp_gray<= 'b0;
+	else
+	begin
+		if(pop && !empty)
+			rp_gray<=rp_gray_next;
+		else
+			rp_gray<=rp_gray;
+	end
+end
+
+assign rp_gray_next = rp_binary_next ^ {1'b0 , rp_binary_next[AW:1]};
+
+//////////////////// for wp sync 2r logic /////////////////////////
+
+always@(posedge rclk or negedge rrstn)
+begin
+	if(!rrstn)
+	begin
+		wp_meta<= 'b0;
+		wp_sync_2r<= 'b0;
+	end
+	else
+	begin
+		wp_meta<=wp_gray;
+		wp_sync_2r<=wp_meta;
+	end
+end
+
+//////////////////// for rp sync 2w logic /////////////////////////
+
+always@(posedge wclk or negedge wrstn)
+begin
+	if(!wrstn)
+	begin
+		rp_meta<= 'b0;
+		rp_sync_2w<= 'b0;
+	end
+	else
+	begin
+		rp_meta<=rp_gray;
+		rp_sync_2w<=rp_meta;
+	end
+end
+
+//////////////////////// rp_sync_2w_binary ////////////////////////////
+
+assign rp_sync_2w_binary = ((rp_sync_2w) ^ {1'b0 , rp_sync_2w_binary[AW:1]});
+
+/////////////////////// for full flag ////////////////////////////////
+
+always@(posedge wclk or negedge wrstn)
+begin
+	if(!wrstn)
+		full <= 1'b0;
+	else
+		full <= ((wp_binary[AW] != rp_sync_2w_binary[AW]) & (wp_binary[AW-1:0] == rp_sync_2w_binary[AW-1:0])) | ((push) && (wp_binary_next[AW-1:0] == rp_sync_2w_binary[AW-1:0]) & (wp_binary_next[AW] != rp_sync_2w_binary[AW]));
+end
+
+/////////////////////// for empty flag ////////////////////////////////
+
+always@(posedge rclk or negedge rrstn)
+begin
+	if(!rrstn)
+		empty <= 1'b1;
+	else
+		empty <= (wp_sync_2r == rp_gray) | ((pop) & (wp_sync_2r == rp_gray_next));
+end
+
+endmodule

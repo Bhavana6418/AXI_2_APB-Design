@@ -1,0 +1,88 @@
+`timescale 1ns/1ps 
+module fifo_sb #(parameter AW=32,
+		 parameter DW=32,
+		 parameter IW=4,
+		 parameter LW=4)
+		 
+		(input sclk,s_rstn,
+		 
+		 input wa_push,
+		 input [AW+IW+LW+7:0] wa_wdata,
+		 output wa_full,
+
+		 input wd_push,
+		 input [(DW/8)+DW:0] wd_wdata,
+		 output wd_full,
+
+		 input ra_push,
+		 input [AW+IW+LW+7:0] ra_wdata,
+	         output ra_full,
+
+		 input rd_pop,
+		 output [DW+IW+2:0] rd_rdata,
+		 output rd_empty,
+
+		 input mclk,m_rstn,
+
+		 input wa_pop,
+		 output [AW+IW+LW+7:0] wa_rdata,
+	         output wa_empty,
+
+		 input wd_pop,
+		 output [(DW/8)+DW:0] wd_rdata,
+		 output wd_empty,
+
+		 input ra_pop,
+		 output [AW+IW+LW+7:0] ra_rdata,
+		 output ra_empty,
+
+		 input rd_push,
+		 input [DW+IW+2:0] rd_wdata,
+		 output rd_full);
+
+dp_fifo #(.AW(2), .DW(AW+IW+LW+8)) wa_fifo(.wclk(sclk),
+					   .wrstn(s_rstn),
+					   .push(wa_push),
+					   .wdata(wa_wdata),
+					   .full(wa_full),
+					   .rclk(mclk),
+					   .rrstn(m_rstn),
+					   .pop(wa_pop),
+					   .rdata(wa_rdata),
+					   .empty(wa_empty));
+
+dp_fifo #(.AW(2+LW), .DW((DW/8)+DW+1)) wd_fifo(.wclk(sclk),
+					   .wrstn(s_rstn),
+					   .push(wd_push),
+					   .wdata(wd_wdata),
+					   .full(wd_full),
+					   .rclk(mclk),
+					   .rrstn(m_rstn),
+					   .pop(wd_pop),
+					   .rdata(wd_rdata),
+					   .empty(wd_empty));
+
+dp_fifo #(.AW(2), .DW(AW+IW+LW+8)) ra_fifo(.wclk(sclk),
+					   .wrstn(s_rstn),
+					   .push(ra_push),
+					   .wdata(ra_wdata),
+					   .full(ra_full),
+					   .rclk(mclk),
+					   .rrstn(m_rstn),
+					   .pop(ra_pop),
+					   .rdata(ra_rdata),
+					   .empty(ra_empty));
+
+dp_fifo #(.AW(2+LW), .DW(AW+IW+3)) rd_fifo(.wclk(mclk),
+					   .wrstn(m_rstn),
+					   .push(rd_push),
+					   .wdata(rd_wdata),
+					   .full(rd_full),
+					   .rclk(sclk),
+					   .rrstn(s_rstn),
+					   .pop(rd_pop),
+					   .rdata(rd_rdata),
+					   .empty(rd_empty));
+
+
+endmodule

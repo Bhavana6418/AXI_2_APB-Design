@@ -1,0 +1,256 @@
+`timescale 1ns/1ps 
+module AXI_slave #(parameter AW=32,
+		   parameter DW=32,
+		   parameter IW=4,
+		   parameter LW=4)
+		 
+		(input Aclk,Aresetn,
+		 
+		 input [IW-1:0] Awid,
+		 input [AW-1:0] Awaddr,
+		 input [LW-1:0] Awlen,
+		 input [2:0] Awsize,
+		 input [1:0] Awburst,
+		 input [2:0] Awprot,
+		 input Awvalid,
+		 output Awready,
+
+		 input [DW-1:0] Wdata,
+	 	 input [(DW/8)-1:0] Wstrb,
+		 input Wlast,Wvalid,
+		 output Wready,
+
+		 output reg [IW-1:0] Bid,
+	 	 output reg [1:0] Bresp,
+		 output reg Bvalid,
+		 input Bready,
+
+		 input [IW-1:0] Arid,
+		 input [AW-1:0] Araddr,
+		 input [LW-1:0] Arlen,
+		 input [2:0] Arsize,
+	 	 input [1:0] Arburst,
+		 input [2:0] Arprot,
+		 input Arvalid,
+		 output Arready,
+
+		 output [IW-1:0] Rid,
+		 output [DW-1:0]  Rdata,
+		 output [1:0] rresp,
+		 input Rready,
+		 output reg Rlast,
+		 output Rvalid,
+
+	         output [AW+IW+LW+7:0] w_addr_ctrl,
+		 output w_addr_wen,
+		 input w_addr_full,
+
+		 output [(DW/8)+DW:0] w_data_ctrl,
+		 output w_data_wen,
+		 input w_data_full,
+
+		 output [AW+IW+LW+7:0] r_addr_ctrl,
+		 output r_addr_wen,
+		 input r_addr_full,
+
+		input [DW+IW+2:0] r_data_ctrl,
+		 input r_data_empty,
+		 output r_data_ren,
+
+		 input [1:0] wr_resp_2_axi,
+		 input [IW-1:0] wr_bid_2_axi,
+		 
+		 input mstr_wr_2_axi,
+		 input use_mwerr_resp);
+
+	 	 wire rlast;
+		 wire mstr_wr_2_axi_s;
+		 reg w_axi_addr_vld;
+
+assign w_addr_ctrl =  {Awprot,Awburst,Awsize,Awlen,Awaddr,Awid};
+assign r_addr_ctrl = {Arprot,Arburst,Arsize,Arlen,Araddr,Arid};
+
+assign w_data_ctrl = {Wlast,Wstrb,Wdata};
+
+assign Awready = ~w_addr_full;
+assign Wready = ~w_data_full;
+
+assign w_data_wen = Wvalid && Wready;
+
+assign Arready = ~r_addr_full;
+assign Rid = r_data_ctrl[3:0];
+assign Rdata = r_data_ctrl[35:4];
+assign rresp = r_data_ctrl[37:36];
+assign rlast = r_data_ctrl[38];
+
+pulse_sync pulse_sync_u_mstr_wr_2_axi ( 
+		.rstn(Aresetn),
+		.clk(Aclk),
+		.d(mstr_wr_2_axi),
+		.p(mstr_wr_2_axi_s)
+		);
+	
+
+
+////////////////////// for axi read address valid ///////////////////////
+
+assign r_addr_wen = Arvalid && Arready;
+/*
+reg r_axi_addr_vld;
+
+always@(posedge Aclk or negedge Aresetn)
+begin
+	if(!Aresetn)
+		r_axi_addr_vld<=0;
+	else
+		r_axi_addr_vld<=r_addr_wen;
+end
+*/
+
+///////////////////// write response fsm ///////////////////
+
+parameter wr_idle=2'b00, wr_iresp=2'b01, wr_wresp=2'b10, wr_mresp=2'b11 ;
+reg [1:0] wr_state, wr_next_state;
+
+always@(posedge Aclk or negedge Aresetn)
+begin
+	if(!Aresetn)
+		wr_state<=wr_idle;
+	else
+		wr_state<=wr_next_state;
+end
+
+always@(*)
+begin
+	wr_next_state = wr_idle;
+	case(wr_state)
+		wr_idle :  begin
+			   if(use_mwerr_resp)
+				  wr_next_state = wr_wresp;
+			   else if(!use_mwerr_resp && w_axi_addr_vld)
+				  wr_next_state = wr_iresp;
+			   
+			   else if(!use_mwerr_resp && !w_axi_addr_vld)
+				  wr_next_state = wr_idle;
+			   else
+				  wr_next_state = wr_idle;
+		  	   end	
+		wr_iresp : begin
+			   if(!Bready)
+				   wr_next_state = wr_iresp;
+			   else
+				   wr_next_state = wr_idle;
+		   	   end
+		wr_wresp : begin
+			   wr_next_state = wr_mresp;
+		   	   end
+		wr_mresp : begin
+			   if(Bready && Bvalid)
+				   wr_next_state = wr_idle;
+			   else
+				   wr_next_state = wr_mresp;
+		   	   end
+		default :  wr_next_state = wr_idle;
+	endcase
+end
+
+/////////////////////// for read response ///////////////////////
+
+parameter rr_idle=1'b0, rr_resp_mc=1'b1;
+reg r_state,r_next_state;
+
+always@(posedge Aclk or negedge Aresetn)
+begin
+	if(!Aresetn)
+		r_state <= rr_idle;
+	else
+		r_state <= r_next_state;
+end
+
+always@(*)
+begin
+	r_next_state = rr_idle;
+	case(r_state)
+		rr_idle : begin
+		  	  if(r_data_empty)
+			  r_next_state = rr_idle;
+		 	  else 
+			  r_next_state = rr_resp_mc;
+	  	  	  end
+		rr_resp_mc : begin
+		    	     if(!Rready)
+			     r_next_state = rr_resp_mc;
+		      	     else
+			     r_next_state = rr_idle;
+	      	             end
+		default : r_next_state = rr_idle;
+	endcase
+end
+
+//////////////////////// for axi write address valid //////////////////////
+
+assign w_addr_wen = Awvalid && Awready;
+
+always@(posedge Aclk or negedge Aresetn)
+begin
+	if(!Aresetn)
+		w_axi_addr_vld <= 1'b0;
+	else
+		w_axi_addr_vld <= w_addr_wen;
+end
+
+/////////////////////// for B response ////////////////////////////
+
+always@(posedge Aclk or negedge Aresetn)
+begin
+	if(!Aresetn)
+		Bresp<= 'b0;
+	else
+	begin
+		if(wr_state==wr_mresp)
+			Bresp <= wr_resp_2_axi;
+		else
+			Bresp <= Bresp;
+	end
+end
+
+////////////////////// Bid ///////////////////////////////
+
+always@(*)
+begin
+	if(wr_state==wr_iresp)
+		Bid = Awid;
+	else if(wr_state==wr_mresp || wr_state == wr_iresp)
+			Bid = wr_bid_2_axi;
+	else
+			Bid = 1'b0;
+end
+
+/////////////////////// Read data renable ///////////////////////////
+
+assign r_data_ren = ((r_state == rr_idle) && (~r_data_empty));
+
+/////////////////////////// B valid ///////////////////////////////
+
+always@(*)
+begin
+	if(use_mwerr_resp)
+		Bvalid = (((wr_state == wr_wresp)&&(mstr_wr_2_axi_s)) || ((wr_state == wr_mresp)&&(mstr_wr_2_axi_s)));
+	else
+		Bvalid = (wr_state == wr_iresp);
+end
+
+//assign mstr_wr_2_axi_s = mstr_wr_2_axi;
+
+////////////////////////// Rlast //////////////////////////////
+assign Rvalid = (r_state == rr_resp_mc) ? 1'b1 : 1'b0;
+
+always@(*)
+begin
+	if(Rvalid)
+		Rlast = rlast;
+	else
+		Rlast = 1'b0;
+end
+
+endmodule

@@ -1,0 +1,339 @@
+`timescale 1ns/1ps 
+module axi_2_apb_top #(parameter AW=32,
+	    	       parameter DW=32,
+		       parameter LW=4,
+	       	       parameter IW=4,
+	       	       parameter SLAVE0_BASE_ADDR = 32'h4000_0000,
+		       parameter SLAVE1_BASE_ADDR = 32'h4000_1000,
+	      	       parameter SLAVE2_BASE_ADDR = 32'h4000_2000,
+		       parameter SLAVE3_BASE_ADDR = 32'h4000_3000, 
+		       parameter SLAVE4_BASE_ADDR = 32'h4000_4000,
+		       parameter SLAVE5_BASE_ADDR = 32'h4000_5000,
+		       parameter SLAVE6_BASE_ADDR = 32'h4000_6000,
+		       parameter SLAVE7_BASE_ADDR = 32'h4000_7000,
+		       parameter SLAVE8_BASE_ADDR = 32'h4000_8000, 
+		       parameter SLAVE9_BASE_ADDR = 32'h4000_9000,
+		       parameter SLAVE10_BASE_ADDR = 32'h4000_A000,
+		       parameter OFFSET_ADDR = 32'h0000_0FFF)
+
+		       (input Aclk_i,Aresetn_i,
+		 
+		        input [IW-1:0] Awid_i,
+		        input [AW-1:0] Awaddr_i,
+		        input [LW-1:0] Awlen_i,
+		        input [2:0] Awsize_i,
+		        input [1:0] Awburst_i,
+		        input [2:0] Awprot_i,
+		        input Awvalid_i,
+		        output Awready_o,
+
+		        input [DW-1:0] Wdata_i,
+	 	        input [(DW/8)-1:0] Wstrb_i,
+		        input Wlast_i,Wvalid_i,
+		        output Wready_o,
+
+		        output [IW-1:0] Bid_o,
+	 	        output [1:0] Bresp_o,
+		        output Bvalid_o,
+		        input Bready_i,
+
+		  	input [IW-1:0] Arid_i,
+			input [AW-1:0] Araddr_i,
+		 	input [LW-1:0] Arlen_i,
+		 	input [2:0] Arsize_i,
+	 	 	input [1:0] Arburst_i,
+		 	input [2:0] Arprot_i,
+		 	input Arvalid_i,
+		 	output Arready_o,
+
+		 	output [IW-1:0] Rid_o,
+		 	output [DW-1:0]  Rdata_o,
+		 	output [1:0] rresp_o,
+		 	input Rready_i,
+		 	output Rlast_o,
+		 	output Rvalid_o,
+
+			input Pclk_i,Presetn_i,
+			output [9:0] Pselx_o,
+			output pwrite_o,penable_o,
+			output [2:0] pprot_o,
+			output [AW-1:0] paddr_o,
+			output [DW-1:0] pwdata_o,
+			output [(DW/8)-1:0] pstrb_o,
+			input [9:0] pslverr_i,pready_i,
+			input [DW-1:0] prdata_i_0,prdata_i_1,prdata_i_2,prdata_i_3,prdata_i_4,prdata_i_5,prdata_i_6,prdata_i_7,prdata_i_8,prdata_i_9);
+
+///////////////////////////// axi slave instance /////////////////////////////
+
+wire wa_push1;
+wire [AW+IW+LW+7:0] wa_wdata1;
+wire wa_full1;
+
+wire wd_push;
+wire [(DW/8)+DW:0] wd_wdata1;
+wire wd_full1;
+
+wire ra_push1;
+wire [AW+IW+LW+7:0] ra_wdata1;
+wire ra_full1;
+
+wire rd_pop1;
+wire [DW+IW+2:0] rd_rdata1;
+wire rd_empty1;
+
+wire [1:0] wr_resp_2_axi1;
+wire [IW-1:0] wr_resp_id_2_axi1;
+wire wr_2_axi1;
+wire use_mwerr_resp1;
+		       
+AXI_slave #(.AW(AW),.DW(DW),.IW(IW),.LW(LW)) 
+          
+           AXI_SLAVE_DUT(.Aclk(Aclk_i),
+			.Aresetn(Aresetn_i),
+			.Awid(Awid_i),
+			.Awaddr(Awaddr_i),
+			.Awlen(Awlen_i),
+			.Awsize(Awsize_i),
+			.Awburst(Awburst_i),
+			.Awprot(Awprot_i),
+			.Awvalid(Awvalid_i),
+			.Awready(Awready_o),
+
+			.Wdata(Wdata_i),
+			.Wstrb(Wstrb_i),
+			.Wlast(Wlast_i),
+			.Wvalid(Wvalid_i),
+			.Wready(Wready_o),
+
+			.Bid(Bid_o),
+			.Bresp(Bresp_o),
+			.Bvalid(Bvalid_o),
+			.Bready(Bready_i),
+
+			.Arid(Arid_i),
+			.Araddr(Araddr_i),
+			.Arlen(Arlen_i),
+			.Arsize(Arsize_i),
+			.Arburst(Arburst_i),
+			.Arprot(Arprot_i),
+			.Arvalid(Arvalid_i),
+			.Arready(Arready_o),
+
+			.Rid(Rid_o),
+			.Rdata(Rdata_o),
+			.rresp(rresp_o),
+			.Rready(Rready_i),
+			.Rlast(Rlast_o),
+			.Rvalid(Rvalid_o),
+
+			.w_addr_ctrl(wa_wdata1),
+			.w_addr_wen(wa_push1),
+			.w_addr_full(wa_full1),
+
+			.w_data_ctrl(wd_wdata1),
+			.w_data_wen(wd_push1),
+			.w_data_full(wd_full1),
+			
+			.r_addr_ctrl(ra_wdata1),
+			.r_addr_wen(ra_push1),
+			.r_addr_full(ra_full1),
+			
+			.r_data_ctrl(rd_rdata1),
+			.r_data_empty(rd_empty1),
+			.r_data_ren(rd_pop1),
+
+			.wr_resp_2_axi(wr_resp_2_axi1),
+			.wr_bid_2_axi(wr_resp_id_2_axi1),
+			.mstr_wr_2_axi(wr_2_axi1),
+			.use_mwerr_resp(use_mwerr_resp1));
+
+//////////////////////////////// fifo sub block ///////////////////////////////
+wire [AW+IW+LW+7:0] waddr_ctrl_rdata1;
+wire [AW+IW+LW+7:0] raddr_ctrl_rdata1;
+wire waddr_fifo_empty1;
+wire raddr_fifo_empty1;
+wire waddr_fifo_pop1;
+wire raddr_fifo_pop1;
+wire [(DW/8)+DW:0] wdata_strb1;
+wire data_ren1;
+wire data_fe1;
+wire [DW+IW+2:0] rdata_serr1;
+wire rdata_wen1;
+wire rdata_ff1;
+
+
+fifo_sb #(.AW(AW),.DW(DW),.IW(IW),.LW(LW))
+
+	FIFO_SB_DUT(.sclk(Aclk_i),
+		    .s_rstn(Aresetn_i),
+		    .wa_push(wa_push1),
+		    .wa_wdata(wa_wdata1),
+		    .wa_full(wa_full1),
+		    .wd_push(wd_push1),
+		    .wd_wdata(wd_wdata1),
+		    .wd_full(wd_full1),
+		    .ra_push(ra_push1),
+		    .ra_wdata(ra_wdata1),
+		    .ra_full(ra_full1),
+		    .rd_pop(rd_pop1),
+		    .rd_rdata(rd_rdata1),
+		    .rd_empty(rd_empty1),
+		    .mclk(Pclk_i),
+		    .m_rstn(Presetn_i),
+		    .wa_pop(waddr_fifo_pop1),
+		    .wa_rdata(waddr_ctrl_rdata1),
+		    .wa_empty(waddr_fifo_empty1),
+		    .wd_pop(data_ren1),
+		    .wd_rdata(wdata_strb1),
+		    .wd_empty(data_fe1),
+		    .ra_pop(raddr_fifo_pop1),
+		    .ra_rdata(raddr_ctrl_rdata1),
+		    .ra_empty(raddr_fifo_empty1),
+		    .rd_push(rdata_wen1),
+		    .rd_wdata(rdata_serr1),
+		    .rd_full(rdata_ff1));
+
+/////////////////////////// Address calculator instantiation /////////////////////
+wire [AW+LW+IW+2:0] awaddr_ctrl1;
+wire waddr_ren1;
+wire waddr_fe1;
+wire [AW+LW+IW+2:0] araddr_ctrl1;
+wire raddr_ren1;
+wire raddr_fe1;
+
+addr_cal #(.AW(AW),.DW(DW),.IW(IW),.LW(LW))
+
+		       ADDR_CAL_DUT(.pclk(Pclk_i),
+				    .presetn(Presetn_i),
+				    .waddr_ren(waddr_ren1),
+				    .raddr_ren(raddr_ren1),
+				    .waddr_ctrl_rdata(waddr_ctrl_rdata1),
+				    .raddr_ctrl_rdata(raddr_ctrl_rdata1),
+				    .waddr_fifo_empty(waddr_fifo_empty1),
+				    .raddr_fifo_empty(raddr_fifo_empty1),
+				    .waddr_fifo_pop(waddr_fifo_pop1),
+				    .raddr_fifo_pop(raddr_fifo_pop1),
+				    .r_write_prot_addr_id(awaddr_ctrl1),
+				    .r_read_prot_addr_id(araddr_ctrl1),
+				    .w_addr_fe(waddr_fe1),
+				    .r_addr_fe(raddr_fe1));
+
+////////////////////////////// APB CSR instantiation ///////////////////////////
+wire [DW-1:0] prdata_csr;
+wire [2:0] access_ratio1;
+wire psel_csr,pready_csr,pslverr_csr;
+
+apb_csr #(.AW(AW),.DW(DW),.IW(IW),.LW(LW),.register_addr(SLAVE10_BASE_ADDR))
+
+		       APB_CSR_DUT(.presetn(Presetn_i),
+				   .pclk(Pclk_i),
+				   .psel(psel_csr),
+				   .penable(penable_o),
+				   .pwrite(pwrite_o),
+				   .paddr(paddr_o),
+				   .pwdata(pwdata_o),
+				   .prdata(prdata_csr),
+				   .pready(pready_csr),
+				   .pslverr(pslverr_csr),
+				   .use_mwerr_resp(use_mwerr_resp1),
+				   .wr_rd_ratio(access_ratio1));
+
+//////////////////////// APB MASTER INTERFACE instantiation ////////////////
+wire PSELx1,PWRITE1,PENABLE1;
+wire [2:0] PPROT1;
+wire [AW-1:0] PADDR1;
+wire [DW-1:0] PWDATA1;
+wire [(DW/8)-1:0] PSTRB1;
+wire PSLVERR1,PREADY1;
+wire [DW-1:0] PRDATA1;
+wire decode_err1;
+
+apb_master_if #(.AW(AW),
+		.DW(DW),
+		.LW(LW),
+		.IW(IW))  
+	      	
+	      APB_MASTER_DUT(.awaddr_ctrl(awaddr_ctrl1),
+			     .waddr_ren(waddr_ren1),
+			     .waddr_fe(waddr_fe1),
+			     .wdata_strb(wdata_strb1),
+			     .data_ren(data_ren1),
+			     .data_fe(data_fe1),
+			     .araddr_ctrl(araddr_ctrl1),
+			     .raddr_ren(raddr_ren1),
+			     .raddr_fe(raddr_fe1),
+			     .rdata_serr(rdata_serr1),
+			     .rdata_wen(rdata_wen1),
+			     .rdata_ff(rdata_ff1),
+			     .wr_resp_2_axi(wr_resp_2_axi1),
+			     .wr_resp_id_2_axi(wr_resp_id_2_axi1),
+			     .wr_2_axi(wr_2_axi1),
+			    // .rd_2_axi(wr_2_axi),
+			     .access_ratio(access_ratio1),
+			     .PCLK(Pclk_i),
+			     .PRESETn(Presetn_i),
+			     .PSEL(PSELx1),
+			     .PENABLE(PENABLE1),
+			     .PADDR(PADDR1),
+			     .PPROT(PPROT1),
+			     .PWRITE(PWRITE1),
+			     .PWDATA(PWDATA1),
+			     .PSTRB(PSTRB1),
+			     .PREADY(PREADY1),
+			     .PRDATA(PRDATA1),
+			     .PSLVERR(PSLVERR1),
+			     .decode_err(decode_err1));
+
+///////////////////////////// APB_SLAVE_SELECTOR //////////////////////////////
+
+
+apb_slave_selector #(.AW(AW),
+		     .DW(DW),
+		     .IW(IW),
+		     .LW(LW),
+		     .SLAVE0_BASE_ADDR(SLAVE0_BASE_ADDR),
+		     .SLAVE1_BASE_ADDR(SLAVE1_BASE_ADDR),
+		     .SLAVE2_BASE_ADDR(SLAVE2_BASE_ADDR),
+		     .SLAVE3_BASE_ADDR(SLAVE3_BASE_ADDR),
+		     .SLAVE4_BASE_ADDR(SLAVE4_BASE_ADDR),
+		     .SLAVE5_BASE_ADDR(SLAVE5_BASE_ADDR),
+		     .SLAVE6_BASE_ADDR(SLAVE6_BASE_ADDR),
+		     .SLAVE7_BASE_ADDR(SLAVE7_BASE_ADDR),
+		     .SLAVE8_BASE_ADDR(SLAVE8_BASE_ADDR),
+		     .SLAVE9_BASE_ADDR(SLAVE9_BASE_ADDR),
+		     .SLAVE10_BASE_ADDR(SLAVE10_BASE_ADDR),
+		     .OFFSET_ADDR(OFFSET_ADDR))
+
+                 APB_SLAVE_SELECTOR_DUT (.PSELx(PSELx1),
+					 .PWRITE(PWRITE1),
+					 .PENABLE(PENABLE1),
+					 .PPROT(PPROT1),
+					 .PADDR(PADDR1),
+					 .PWDATA(PWDATA1),
+					 .PSTRB(PSTRB1),
+					 .PSLVERR(PSLVERR1),
+					 .PREADY(PREADY1),
+					 .PRDATA(PRDATA1),
+					 .decode_err(decode_err1),
+					 .psel({psel_csr,Pselx_o}),
+					 .pwrite(pwrite_o),
+					 .penable(penable_o),
+					 .pprot(pprot_o),
+					 .paddr(paddr_o),
+					 .pwdata(pwdata_o),
+					 .pstrb(pstrb_o),
+					 .pslverr({pslverr_csr,pslverr_i}),
+					 .pready({pready_csr,pready_i}),
+					 .prdata_0(prdata_i_0),
+					 .prdata_1(prdata_i_1),
+					 .prdata_2(prdata_i_2),
+					 .prdata_3(prdata_i_3),
+					 .prdata_4(prdata_i_4),
+					 .prdata_5(prdata_i_5),
+					 .prdata_6(prdata_i_6),
+					 .prdata_7(prdata_i_7),
+					 .prdata_8(prdata_i_8),
+					 .prdata_9(prdata_i_9),
+					 .prdata_10(prdata_csr));
+
+endmodule
